@@ -25,8 +25,13 @@ The server binds to `127.0.0.1` only. If port 5182 is busy it walks up to the ne
 | `PEOPLE_PORT` / `PORT` | Preferred port (default `5182`). |
 | `PORT_STRICT=1` | Do not fall back to another port. |
 | `PEOPLE_DATA_DIR` | Data folder (default `<repo>/data`, gitignored). Contains `peoples-hoard.db` and `mcp-token`. |
+| `PEOPLE_ALLOWED_HOSTS` | Extra host names accepted behind a tunnel (see below). |
 | `PEOPLE_URL` | MCP bridge: base URL of the running app (default `http://127.0.0.1:5182`). Must be local. |
 | `PEOPLE_TOKEN_FILE` / `PEOPLE_TOKEN` | MCP bridge: where to read the bearer token (default `<data dir>/mcp-token`). |
+
+### Access from your phone (behind a tunnel)
+
+The server binds 127.0.0.1 and only answers requests whose `Host` is `localhost`, `127.0.0.1` or `[::1]`. To reach it from your phone through a tunnel that fronts the app (a private mesh network, a reverse proxy), list the extra host names in `PEOPLE_ALLOWED_HOSTS`, comma-separated, exact names or `*.suffix`: `PEOPLE_ALLOWED_HOSTS=my-pc.example,*.ts.net`. Port and letter case are ignored, and the `Origin` of API calls must resolve to one of those hosts too (any scheme or port). Cross-site *fetches* are still refused; opening the app from another page (a link, a bookmarklet, the share sheet) is a normal navigation and works.
 
 ## What it does
 

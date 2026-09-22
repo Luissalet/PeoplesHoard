@@ -81,8 +81,18 @@ export function nextBirthday(birthday, from = today()) {
 }
 
 /** Whole days between a past ISO date/datetime and `from` (>= 0), or null. */
+/** Local calendar date ("YYYY-MM-DD") of an ISO datetime; a bare date passes through. */
+export function localDate(iso) {
+  const s = String(iso);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return s.slice(0, 10);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 export function daysSince(iso, from = today()) {
   if (!iso) return null;
-  const date = String(iso).slice(0, 10);
-  return Math.max(0, daysBetween(date, from));
+  // `today()` is local time, so the timestamp must be read as a local date too:
+  // an interaction at 22:25Z on the 22nd is "today" at 00:25 local on the 23rd.
+  return Math.max(0, daysBetween(localDate(iso), from));
 }

@@ -25,8 +25,13 @@ El servidor escucha únicamente en `127.0.0.1`. Si el puerto 5182 está ocupado 
 | `PEOPLE_PORT` / `PORT` | Puerto preferido (por defecto `5182`). |
 | `PORT_STRICT=1` | No buscar otro puerto. |
 | `PEOPLE_DATA_DIR` | Carpeta de datos (por defecto `<repo>/data`, ignorada por git). Contiene `peoples-hoard.db` y `mcp-token`. |
+| `PEOPLE_ALLOWED_HOSTS` | Nombres de host adicionales aceptados detrás de un túnel (ver más abajo). |
 | `PEOPLE_URL` | Puente MCP: URL de la aplicación (por defecto `http://127.0.0.1:5182`). Debe ser local. |
 | `PEOPLE_TOKEN_FILE` / `PEOPLE_TOKEN` | Puente MCP: de dónde leer el token (por defecto `<datos>/mcp-token`). |
+
+### Acceso desde el móvil (a través de un túnel)
+
+El servidor escucha en 127.0.0.1 y solo responde a peticiones cuyo `Host` sea `localhost`, `127.0.0.1` o `[::1]`. Para entrar desde el móvil a través de un túnel que ponga la aplicación delante (una red privada, un proxy inverso), indicad los nombres de host adicionales en `PEOPLE_ALLOWED_HOSTS`, separados por comas, exactos o `*.sufijo`: `PEOPLE_ALLOWED_HOSTS=mi-pc.example,*.ts.net`. El puerto y las mayúsculas no importan, y el `Origin` de las llamadas a la API también tiene que corresponder a uno de esos hosts (con cualquier esquema o puerto). Las peticiones *fetch* desde otras webs se siguen rechazando; abrir la aplicación desde otra página (un enlace, un bookmarklet, el menú de compartir) es una navegación normal y funciona.
 
 ## Qué hace
 
