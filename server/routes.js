@@ -8,6 +8,7 @@ import * as interactions from "./interactions.js";
 import * as reminders from "./reminders.js";
 import { upcomingReport } from "./upcoming.js";
 import { dataDir } from "./db.js";
+import { manifest, serviceWorker } from "./manifest.js";
 
 const notFound = (res) => res.status(404).json({ error: "No existe." });
 const exportSchema = z.object({
@@ -166,5 +167,16 @@ export function installRoutes(app, { version, dataDirConfigured }) {
       importedReminders++;
     }
     res.json({ people: importedPeople, aliases: importedAliases, facts: importedFacts, interactions: importedInteractions, reminders: importedReminders });
+  });
+
+  // PWA manifest and service worker.
+  app.get("/manifest.webmanifest", (req, res) => {
+    res.set("Content-Type", "application/manifest+json");
+    res.send(JSON.stringify(manifest()));
+  });
+  app.get("/sw.js", (req, res) => {
+    res.set("Content-Type", "application/javascript");
+    res.set("Service-Worker-Allowed", "/");
+    res.send(serviceWorker());
   });
 }
