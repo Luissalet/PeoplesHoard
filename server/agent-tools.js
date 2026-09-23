@@ -16,6 +16,7 @@ Never invent facts, birthdays or relationships. Only record what the user actual
 When logging an interaction from a chat or e-mail, summarize the gist in one short line with log_interaction; never paste the private message content itself.
 Birthdays without a known year are fine: store them as --MM-DD (month and day only).
 Call find_people or get_person before writing, so a fact, alias or interaction lands on the right person.
+Who the person is goes in "summary" ("vecina del cuarto", "compañero del máster", "amigo de la infancia") and their group in "circles" (familia, amigos, trabajo, vecinos, ...); tastes, children, jobs and similar go in facts. When the user describes a new person, fill summary and circles in the same upsert_person call.
 merge_people and delete_person are irreversible: confirm with the user before calling them.`;
 
 const fail = (message, opts = {}) => {
