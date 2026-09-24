@@ -44,7 +44,7 @@ const personRef = z.string().trim().min(1).max(200).describe("Person id, exact n
 export const TOOLS = [
   tool(
     "find_people",
-    "Search the address book by name, nickname or alias: fuzzy, accent-insensitive, matches partial names anywhere in the word. Returns candidates ranked by score; ask the user when more than one is plausible.\nSinónimos: quién es, buscar persona, contacto, amigo, familia, compañero de",
+    "Search the address book by name, nickname or alias (fuzzy). Sinónimos: quién es, busca a, contacto\nSearch the address book by name, nickname or alias: fuzzy, accent-insensitive, matches partial names anywhere in the word. Returns candidates ranked by score; ask the user when more than one is plausible.\nSinónimos: quién es, buscar persona, contacto, amigo, familia, compañero de",
     z.object({ query: z.string().trim().min(1).max(200), limit: z.number().int().min(1).max(30).default(8) }),
     RO,
     ({ query, limit }) => ({ candidates: people.findPeople(query, { limit }) }),
@@ -52,7 +52,7 @@ export const TOOLS = [
 
   tool(
     "get_person",
-    "Get the full record for one person: facts, last 10 interactions, open reminders and days since last contact. Accepts an id or a name; ambiguous names return candidates instead of guessing.\nSinónimos: quién es, ficha de, contacto, información sobre",
+    "Full record of one person: facts, interactions, reminders, last contact. Sinónimos: ficha de, qué sé de\nGet the full record for one person: facts, last 10 interactions, open reminders and days since last contact. Accepts an id or a name; ambiguous names return candidates instead of guessing.\nSinónimos: quién es, ficha de, contacto, información sobre",
     z.object({ person: personRef }),
     RO,
     ({ person: ref }) => {
@@ -64,7 +64,7 @@ export const TOOLS = [
 
   tool(
     "upsert_person",
-    "Create or update a person. With person set, updates the matching id or exact name (ambiguous exact names return candidates); without a match, or without person, creates a new person from name. All fields besides name are partial and only change what you pass.\nSinónimos: nuevo contacto, añade a mi agenda, actualiza los datos de, guarda a",
+    "Create or update a person; partial fields. Sinónimos: apunta a, nueva persona, actualiza el contacto\nCreate or update a person. With person set, updates the matching id or exact name (ambiguous exact names return candidates); without a match, or without person, creates a new person from name. All fields besides name are partial and only change what you pass.\nSinónimos: nuevo contacto, añade a mi agenda, actualiza los datos de, guarda a",
     z.object({
       person: z.string().trim().max(200).optional().describe("Existing person id or exact name; omit to always create"),
       name: z.string().trim().min(1).max(120).optional(),
@@ -83,7 +83,7 @@ export const TOOLS = [
 
   tool(
     "add_alias",
-    "Add a contact handle to a person (WhatsApp display name, e-mail, phone or other identifier) so future messages from that handle resolve to them. Idempotent: the same kind+value on the same person is a no-op; on someone else it fails.\nSinónimos: apunta el whatsapp de, guarda el teléfono de, guarda el correo de, apodo en",
+    "Add a contact handle (WhatsApp name, e-mail, phone) to a person. Sinónimos: su número, su correo, alias\nAdd a contact handle to a person (WhatsApp display name, e-mail, phone or other identifier) so future messages from that handle resolve to them. Idempotent: the same kind+value on the same person is a no-op; on someone else it fails.\nSinónimos: apunta el whatsapp de, guarda el teléfono de, guarda el correo de, apodo en",
     z.object({ person: personRef, kind: z.enum(people.ALIAS_KINDS).default("other"), value: z.string().trim().min(1).max(200) }),
     { idempotentHint: true },
     ({ person: ref, kind, value }) => ({ alias: aliases.addAlias(resolveOrFail(ref).id, { kind, value }) }),
@@ -91,7 +91,7 @@ export const TOOLS = [
 
   tool(
     "add_fact",
-    'Record a free-form fact about a person as a key/value pair: job, kids, allergies, likes, dislikes... Idempotent on the same key+value ("trabaja en" / "Acme").\nSinónimos: apunta que, le gusta, no le gusta, trabaja en, alergia a, hijos de, cumpleaños de su',
+    'Record a key/value fact about a person (job, kids, likes). Sinónimos: apunta que, recuerda que, dato de\nRecord a free-form fact about a person as a key/value pair: job, kids, allergies, likes, dislikes... Idempotent on the same key+value ("trabaja en" / "Acme").\nSinónimos: apunta que, le gusta, no le gusta, trabaja en, alergia a, hijos de, cumpleaños de su',
     z.object({ person: personRef, key: z.string().trim().min(1).max(80), value: z.string().trim().min(1).max(2000) }),
     { idempotentHint: true },
     ({ person: ref, key, value }) => ({ fact: facts.addFact(resolveOrFail(ref).id, { key, value }) }),
@@ -99,7 +99,7 @@ export const TOOLS = [
 
   tool(
     "log_interaction",
-    "Log a contact with a person (message, call or meeting) and update when you last spoke. Summarize in one short line — never paste the private message content.\nSinónimos: hace cuánto no hablo con, he hablado con, hablé con, quedé con, llamé a, escribí a",
+    "Log a message, call or meeting with a person (one-line summary). Sinónimos: hablé con, llamé a, reunión con\nLog a contact with a person (message, call or meeting) and update when you last spoke. Summarize in one short line — never paste the private message content.\nSinónimos: hace cuánto no hablo con, he hablado con, hablé con, quedé con, llamé a, escribí a",
     z.object({
       person: personRef,
       channel: z.enum(interactions.CHANNELS).default("other"),
@@ -141,7 +141,7 @@ export const TOOLS = [
 
   tool(
     "upcoming",
-    "Look ahead N days (default 30): birthdays with age, reminders due and people you have not contacted within their desired cadence, with a one-line summary.\nSinónimos: cumpleaños, felicitar, hace cuánto no hablo con, qué tengo pendiente, próximos días, agenda",
+    "Birthdays, reminders due and people not contacted lately, next N days. Sinónimos: cumpleaños, a quién escribo\nLook ahead N days (default 30): birthdays with age, reminders due and people you have not contacted within their desired cadence, with a one-line summary.\nSinónimos: cumpleaños, felicitar, hace cuánto no hablo con, qué tengo pendiente, próximos días, agenda",
     z.object({ days: z.number().int().min(1).max(365).default(30) }),
     RO,
     ({ days }) => upcomingReport({ days }),
@@ -157,7 +157,7 @@ export const TOOLS = [
 
   tool(
     "merge_people",
-    "Merge two duplicate people into one: facts, aliases, interactions and reminders move to keep_id; circles are combined; drop_id is deleted. Irreversible; confirm with the user first.\nSinónimos: fusionar, están duplicados, es la misma persona, unir contactos",
+    "Merge two duplicate people into one (irreversible; confirm first). Sinónimos: fusionar, duplicados, unir\nMerge two duplicate people into one: facts, aliases, interactions and reminders move to keep_id; circles are combined; drop_id is deleted. Irreversible; confirm with the user first.\nSinónimos: fusionar, están duplicados, es la misma persona, unir contactos",
     z.object({ keep_id: z.string().min(1), drop_id: z.string().min(1) }),
     { destructiveHint: true },
     ({ keep_id, drop_id }) => ({ person: people.mergePeople(keep_id, drop_id) }),
@@ -165,7 +165,7 @@ export const TOOLS = [
 
   tool(
     "delete_person",
-    "Delete a person and everything linked to them (aliases, facts, interactions, reminders). Irreversible; confirm with the user first.\nSinónimos: borra a, elimina el contacto de, quita de mi agenda",
+    "Delete a person and everything linked (irreversible; confirm first). Sinónimos: borrar contacto, eliminar\nDelete a person and everything linked to them (aliases, facts, interactions, reminders). Irreversible; confirm with the user first.\nSinónimos: borra a, elimina el contacto de, quita de mi agenda",
     z.object({ id: z.string().min(1) }),
     { destructiveHint: true, idempotentHint: true },
     ({ id }) => {
