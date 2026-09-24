@@ -9,6 +9,7 @@ import * as reminders from "./reminders.js";
 import { upcomingReport } from "./upcoming.js";
 import { dataDir } from "./db.js";
 import { manifest, serviceWorker } from "./manifest.js";
+import * as family from "./hoard-link.js";
 
 const notFound = (res) => res.status(404).json({ error: "No existe." });
 const exportSchema = z.object({
@@ -21,7 +22,7 @@ const exportSchema = z.object({
 
 export function installRoutes(app, { version, dataDirConfigured }) {
   app.get("/api/health", (req, res) => {
-    res.json({ service: "peoples-hoard", version, dataDirConfigured });
+    res.json({ service: "peoples-hoard", version, dataDirConfigured, hoard_link: family.healthBlock() });
   });
 
   app.get("/api/state", (req, res) => {
