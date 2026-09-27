@@ -38,7 +38,7 @@ Una vez abierta a través del túnel, el navegador ofrece instalarla (PWA).
 ## Qué hace
 
 - **Personas** — búsqueda instantánea (sin distinguir acentos, encuentra nombres parciales en cualquier parte de la palabra, también por apodo y alias), chips de círculo como filtro, tarjetas con nombre, círculos, «hace 12 días» del último contacto y una insignia de cumpleaños próximo, y un formulario rápido de alta.
-- **Ficha de persona** — cabecera (nombre, apodo, círculos, cumpleaños, ubicación, cadencia de contacto deseada) editable como un único formulario; resumen y notas en textareas que se guardan al salir del campo; datos como lista de clave/valor editable («le gusta» / «el senderismo»); línea de tiempo de contactos con un formulario de una línea («he hablado hoy»); recordatorios con fecha y una casilla «hecho»; editor de alias (WhatsApp, correo, teléfono, otro identificador); archivar, fusionar con un duplicado y borrar.
+- **Ficha de persona** — preparación de conversación en vivo con datos, cinco contactos recientes y recordatorios abiertos; cabecera (nombre, apodo, círculos, cumpleaños, ubicación, cadencia de contacto deseada) editable como un único formulario; resumen y notas en textareas que se guardan al salir del campo; datos como lista de clave/valor editable («le gusta» / «el senderismo»); línea de tiempo de contactos con un formulario de una línea («he hablado hoy»); recordatorios con fecha y una casilla «hecho»; editor de alias (WhatsApp, correo, teléfono, otro identificador); archivar, fusionar con un duplicado y borrar.
 - **Agenda** — próximos cumpleaños con la edad cuando se conoce el año, recordatorios pendientes y una lista de «abandonados»: personas con las que no habláis dentro de la cadencia deseada, con un botón «he hablado hoy» que apunta un contacto rápido al instante.
 - **Ajustes** — carpeta de datos y versión, exportación/importación JSON para copias de seguridad.
 
@@ -58,12 +58,13 @@ Los cumpleaños se guardan como `AAAA-MM-DD` (año conocido) o `--MM-DD` (año d
 
 `faustus-plugin.json` describe la aplicación para Faustus (comprobación de salud, arranque y comando MCP con marcadores).
 
-Herramientas (12):
+Herramientas (13):
 
 | Herramienta | Uso |
 | --- | --- |
 | `find_people` | Búsqueda difusa, sin acentos, por nombre parcial sobre personas, apodos y alias; devuelve candidatos puntuados. |
 | `get_person` | Ficha completa: datos, últimos 10 contactos, recordatorios abiertos, días desde el último contacto. |
+| `prepare_person_chat` | Preparación breve y actualizada para hablar con alguien, con referencias a los registros y datos discrepantes señalados. |
 | `upsert_person` | Crear o actualizar una persona por id o nombre exacto; todos los campos salvo el nombre son parciales. |
 | `add_alias` | Añadir un identificador (WhatsApp, correo, teléfono u otro) para que futuros mensajes resuelvan a esa persona; idempotente. |
 | `add_fact` | Guardar un dato libre de clave/valor («le gusta» / «el senderismo»); idempotente. |

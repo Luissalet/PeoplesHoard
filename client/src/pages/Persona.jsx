@@ -79,9 +79,44 @@ function MergePanel({ person, onDone, notify }) {
   );
 }
 
+function ConversationBrief({ brief }) {
+  if (!brief) return null;
+  const hasContent = brief.person.summary || brief.facts.length || brief.recent_interactions.length || brief.open_reminders.length;
+  return (
+    <Section title="Antes de hablar">
+      {!hasContent ? <p className="help">Añade algún dato o contacto para preparar la próxima conversación.</p> : (
+        <div className="grid gap-4 md:grid-cols-3 text-[13px]">
+          <div>
+            <h3 className="font-semibold mb-2">Lo que sabes</h3>
+            {brief.person.summary && <p className="mb-2">{brief.person.summary}</p>}
+            {brief.facts.length ? <ul className="space-y-1">{brief.facts.map((f) => (
+              <li key={f.id}><span className="help">{f.key}:</span> {f.value}</li>
+            ))}</ul> : <p className="help">Sin datos añadidos.</p>}
+            {brief.conflicting_facts.map((group) => <p key={group.key} className="help mt-2">Hay varios datos para «{group.key}»; comprueba cuál sigue vigente.</p>)}
+          </div>
+          <div>
+            <h3 className="font-semibold mb-2">Últimos contactos</h3>
+            {brief.recent_interactions.length ? <ul className="space-y-2">{brief.recent_interactions.map((item) => (
+              <li key={item.id}><time className="help" dateTime={item.at}>{new Date(item.at).toLocaleDateString("es-ES")}</time>{item.summary && <> · {item.summary}</>}</li>
+            ))}</ul> : <p className="help">Aún no hay contactos registrados.</p>}
+            {brief.interaction_count > brief.recent_interactions.length && <p className="help mt-2">{brief.interaction_count - brief.recent_interactions.length} contactos anteriores en la línea de tiempo.</p>}
+          </div>
+          <div>
+            <h3 className="font-semibold mb-2">Pendiente</h3>
+            {brief.open_reminders.length ? <ul className="space-y-2">{brief.open_reminders.map((item) => (
+              <li key={item.id}><time className="help" dateTime={item.due}>{new Date(`${item.due}T12:00:00`).toLocaleDateString("es-ES")}</time> <span className="help">({item.days_until_due < 0 ? `hace ${-item.days_until_due} días` : item.days_until_due === 0 ? "hoy" : `en ${item.days_until_due} días`})</span> · {item.text}</li>
+            ))}</ul> : <p className="help">Sin recordatorios pendientes.</p>}
+          </div>
+        </div>
+      )}
+    </Section>
+  );
+}
+
 export default function Persona({ id }) {
   const { notify } = useApp();
   const [person, setPerson] = useState(null);
+  const [brief, setBrief] = useState(null);
   const [editing, setEditing] = useState(false);
   const [merging, setMerging] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -91,7 +126,9 @@ export default function Persona({ id }) {
 
   const load = useCallback(async () => {
     try {
-      setPerson(await api.people.get(id));
+      const [record, nextBrief] = await Promise.all([api.people.get(id), api.people.brief(id)]);
+      setPerson(record);
+      setBrief(nextBrief);
     } catch (e) {
       notify({ kind: "error", text: e.message });
     }
@@ -158,6 +195,8 @@ export default function Persona({ id }) {
         </div>
       )}
       {merging && <MergePanel person={person} onDone={() => { setMerging(false); load(); }} notify={notify} />}
+
+      <div className="mb-4"><ConversationBrief brief={brief} /></div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Section title="Resumen">

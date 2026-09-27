@@ -6,7 +6,7 @@ import { bootServer } from "./helpers.js";
 import { TOOLS } from "../server/agent-tools.js";
 
 const EXPECTED = [
-  "find_people", "get_person", "upsert_person", "add_alias", "add_fact", "log_interaction",
+  "find_people", "get_person", "prepare_person_chat", "upsert_person", "add_alias", "add_fact", "log_interaction",
   "add_reminder", "complete_reminder", "upcoming", "list_people", "merge_people", "delete_person",
 ];
 

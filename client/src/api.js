@@ -21,6 +21,7 @@ export const api = {
   people: {
     list: (filter) => request("GET", `/api/people${qs(filter)}`),
     get: (id) => request("GET", `/api/people/${id}`),
+    brief: (id) => request("GET", `/api/people/${id}/brief`),
     create: (data) => request("POST", "/api/people", data),
     update: (id, data) => request("PATCH", `/api/people/${id}`, data),
     remove: (id) => request("DELETE", `/api/people/${id}`),

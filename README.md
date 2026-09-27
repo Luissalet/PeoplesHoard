@@ -38,7 +38,7 @@ Once opened through the tunnel, the browser offers to install it (PWA).
 ## What it does
 
 - **Personas** — instant search (accent-insensitive, matches partial names anywhere in a word, plus nickname and alias), circle chips as a filter, cards with name, circles, "last contact 12 days ago" and a birthday-soon badge, and a quick new-person form.
-- **Persona page** — header (name, nickname, circles, birthday, location, desired contact cadence) editable as one form; summary and notes as textareas that save on blur; facts as an editable key/value list ("le gusta" / "el senderismo"); a contact timeline with a one-line add form ("he hablado hoy"); reminders with due date and a "done" checkbox; an alias editor (WhatsApp, e-mail, phone, other handle); archive, merge-with-a-duplicate and delete.
+- **Persona page** — a live conversation brief combining facts, five recent contacts and open reminders; header (name, nickname, circles, birthday, location, desired contact cadence) editable as one form; summary and notes as textareas that save on blur; facts as an editable key/value list ("le gusta" / "el senderismo"); a contact timeline with a one-line add form ("he hablado hoy"); reminders with due date and a "done" checkbox; an alias editor (WhatsApp, e-mail, phone, other handle); archive, merge-with-a-duplicate and delete.
 - **Agenda** — upcoming birthdays with age when the year is known, reminders due, and an "abandonados" list of people you have not contacted within their desired cadence, with a one-click "he hablado hoy" that logs a quick interaction. **Descargar calendario** exports active birthdays as yearly events and open reminders as dated events in an `.ics` file.
 - **Ajustes** — data folder and version, JSON export/import for backups.
 
@@ -54,6 +54,7 @@ All routes are JSON, validated with zod, and answer errors as `{ "error": "…" 
 | `GET /api/state` | UI bootstrap: version, data dir, circle counts. |
 | `GET /api/people?q=&circle=&archived=` | Search/filter people (`archived`: `false` default, `true`, or `all`). |
 | `GET/POST/PATCH/DELETE /api/people[/:id]` | People CRUD; `GET /:id` returns the full record. |
+| `GET /api/people/:id/brief` | Live conversation brief with source ids and differing facts flagged. |
 | `POST /api/people/merge` | `{ keep_id, drop_id }` — merges a duplicate into a person. |
 | `POST/PATCH/DELETE /api/people/:id/aliases[/:id]`, `/facts`, `/interactions`, `/reminders` | Nested CRUD for each person. |
 | `GET /api/resolve?name=` | Find a person by name/alias: exact → alias → fuzzy, with candidates and scores. |
@@ -78,12 +79,13 @@ All routes are JSON, validated with zod, and answer errors as `{ "error": "…" 
 
 `faustus-plugin.json` describes the app for Faustus (health check, launch hint and the MCP command with placeholders).
 
-Tools (12):
+Tools (13):
 
 | Tool | Purpose |
 | --- | --- |
 | `find_people` | Fuzzy, accent-insensitive, partial-name search over people, nicknames and aliases; returns scored candidates. |
 | `get_person` | Full record: facts, last 10 interactions, open reminders, days since last contact. |
+| `prepare_person_chat` | Compact conversation brief, recomputed after edits, with source ids and conflicting fact values flagged. |
 | `upsert_person` | Create or update a person by id/exact name; all fields besides name are partial. |
 | `add_alias` | Attach a WhatsApp/e-mail/phone/other handle so future messages resolve to a person; idempotent. |
 | `add_fact` | Record a free-form key/value fact ("le gusta" / "el senderismo"); idempotent. |

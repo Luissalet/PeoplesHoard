@@ -9,6 +9,7 @@ import * as interactions from "./interactions.js";
 import * as reminders from "./reminders.js";
 import { upcomingReport } from "./upcoming.js";
 import { daysSince } from "./dates.js";
+import { personBrief } from "./brief.js";
 
 export const AGENT_INSTRUCTIONS = `People's Hoard is the user's private address book: who people are, what to remember about them, and when they last spoke.
 Resolve ambiguous names by asking the user which person they mean — never guess when find_people or get_person returns several candidates; two people can share a first name.
@@ -60,6 +61,14 @@ export const TOOLS = [
       const full = people.getPersonFull(person.id, { interactionsLimit: 10 });
       return { ...full, reminders: full.reminders.filter((r) => !r.done), days_since_last_contact: daysSince(person.last_contact_at) };
     },
+  ),
+
+  tool(
+    "prepare_person_chat",
+    "Prepare a sourced catch-up brief before speaking to someone.\nReturns a compact person brief with facts, five recent interactions, all open reminders and source ids. as_of is today's local date; days_until_due is positive for future reminders and negative for overdue ones. Flags differing values under the same fact key instead of deciding which is current. Recomputed after every edit.\nSinónimos: preparar conversación, antes de hablar, puesta al día, qué recuerdo de",
+    z.object({ person: personRef }),
+    RO,
+    ({ person: ref }) => personBrief(resolveOrFail(ref).id),
   ),
 
   tool(

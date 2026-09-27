@@ -8,6 +8,7 @@ import * as interactions from "./interactions.js";
 import * as reminders from "./reminders.js";
 import { upcomingReport } from "./upcoming.js";
 import { calendarFeed } from "./calendar.js";
+import { personBrief } from "./brief.js";
 import { dataDir } from "./db.js";
 import { manifest, serviceWorker } from "./manifest.js";
 import * as family from "./hoard-link.js";
@@ -40,6 +41,10 @@ export function installRoutes(app, { version, dataDirConfigured }) {
   });
   app.get("/api/people/:id", (req, res) => {
     const out = people.getPersonFull(req.params.id);
+    return out ? res.json(out) : notFound(res);
+  });
+  app.get("/api/people/:id/brief", (req, res) => {
+    const out = personBrief(req.params.id);
     return out ? res.json(out) : notFound(res);
   });
   app.post("/api/people", (req, res) => res.status(201).json(people.createPerson(req.body || {})));
