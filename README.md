@@ -39,7 +39,7 @@ Once opened through the tunnel, the browser offers to install it (PWA).
 
 - **Personas** — instant search (accent-insensitive, matches partial names anywhere in a word, plus nickname and alias), circle chips as a filter, cards with name, circles, "last contact 12 days ago" and a birthday-soon badge, and a quick new-person form.
 - **Persona page** — header (name, nickname, circles, birthday, location, desired contact cadence) editable as one form; summary and notes as textareas that save on blur; facts as an editable key/value list ("le gusta" / "el senderismo"); a contact timeline with a one-line add form ("he hablado hoy"); reminders with due date and a "done" checkbox; an alias editor (WhatsApp, e-mail, phone, other handle); archive, merge-with-a-duplicate and delete.
-- **Agenda** — upcoming birthdays with age when the year is known, reminders due, and an "abandonados" list of people you have not contacted within their desired cadence, with a one-click "he hablado hoy" that logs a quick interaction.
+- **Agenda** — upcoming birthdays with age when the year is known, reminders due, and an "abandonados" list of people you have not contacted within their desired cadence, with a one-click "he hablado hoy" that logs a quick interaction. **Descargar calendario** exports active birthdays as yearly events and open reminders as dated events in an `.ics` file.
 - **Ajustes** — data folder and version, JSON export/import for backups.
 
 Birthdays are stored as `YYYY-MM-DD` (year known) or `--MM-DD` (year unknown); the upcoming window and age computation handle the Dec→Jan boundary and Feb 29 in non-leap years.
@@ -58,6 +58,7 @@ All routes are JSON, validated with zod, and answer errors as `{ "error": "…" 
 | `POST/PATCH/DELETE /api/people/:id/aliases[/:id]`, `/facts`, `/interactions`, `/reminders` | Nested CRUD for each person. |
 | `GET /api/resolve?name=` | Find a person by name/alias: exact → alias → fuzzy, with candidates and scores. |
 | `GET /api/upcoming?days=30` | Birthdays in the window (with age when known), reminders due, and "neglected" people. |
+| `GET /api/calendar.ics` | Download all active birthdays and open reminders as iCalendar events; Feb 29 birthdays recur on leap years. |
 | `GET /api/circles` | Circle names with counts. |
 | `GET /api/export` / `POST /api/import` | JSON backup and restore. |
 | `GET /api/agent/tools` | Tool catalogue (name, description, JSON schema, annotations) and the assistant instructions. |

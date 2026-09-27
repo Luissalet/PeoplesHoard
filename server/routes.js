@@ -7,6 +7,7 @@ import * as facts from "./facts.js";
 import * as interactions from "./interactions.js";
 import * as reminders from "./reminders.js";
 import { upcomingReport } from "./upcoming.js";
+import { calendarFeed } from "./calendar.js";
 import { dataDir } from "./db.js";
 import { manifest, serviceWorker } from "./manifest.js";
 import * as family from "./hoard-link.js";
@@ -98,6 +99,12 @@ export function installRoutes(app, { version, dataDirConfigured }) {
   });
   app.get("/api/upcoming", (req, res) => {
     res.json(upcomingReport({ days: req.query.days ? Number(req.query.days) : 30 }));
+  });
+  app.get("/api/calendar.ics", (req, res) => {
+    const feed = calendarFeed();
+    res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+    res.setHeader("Content-Disposition", 'attachment; filename="peoples-hoard-calendar.ics"');
+    res.send(feed.text);
   });
   app.get("/api/circles", (req, res) => res.json(people.circleCounts()));
 

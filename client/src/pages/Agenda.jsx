@@ -35,13 +35,16 @@ export default function Agenda() {
       title="Agenda"
       description={report.summary}
       actions={
-        <select className="field field-sm w-[160px]" value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="Ventana de días">
-          <option value={7}>7 días</option>
-          <option value={14}>14 días</option>
-          <option value={30}>30 días</option>
-          <option value={90}>90 días</option>
-          <option value={365}>1 año</option>
-        </select>
+        <div className="flex flex-wrap items-center gap-2">
+          <select className="field field-sm w-[160px]" value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="Ventana de días">
+            <option value={7}>7 días</option>
+            <option value={14}>14 días</option>
+            <option value={30}>30 días</option>
+            <option value={90}>90 días</option>
+            <option value={365}>1 año</option>
+          </select>
+          <a className="btn btn-sm" href="/api/calendar.ics" download="peoples-hoard-calendar.ics">Descargar calendario</a>
+        </div>
       }
     >
       <div className="grid gap-4 lg:grid-cols-3">
