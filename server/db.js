@@ -1,10 +1,10 @@
-// Single SQLite connection (node:sqlite, WAL) with ordered migrations, plus a
-// hand-maintained FTS5 index over people. Only the HTTP server process opens
+// Single SQLite connection (node:sqlite) with ordered migrations, plus a
+// hand-maintained FTS5 index over people. Opening, WAL, busy timeout, the migration loop, transactions (re-entrant, savepoints)
+// and the checkpoint on close are the family's openDatabase (hoard-commons/server.js). Only the HTTP server process opens
 // the database; the MCP bridge proxies.
-import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { DatabaseSync } from "node:sqlite";
+import { openDatabase } from "./hoard-commons/server.js";
 
 export const DB_FILE = "peoples-hoard.db";
 
@@ -137,8 +137,15 @@ export const MIGRATIONS = [
   );
   CREATE INDEX gift_ideas_person ON gift_ideas(person_id, status);
   `,
+  // 4: aliases keep the value as typed and a comparison key (`norm`: e-mail without +tag, phone as +34...). Old rows are filled
+  // in the first time they are looked at (handles.js ensureNorms), so nothing is rewritten here.
+  `
+  ALTER TABLE aliases ADD COLUMN norm TEXT NULL;
+  CREATE INDEX aliases_norm ON aliases(kind, norm);
+  `,
 ];
 
+let database = null;
 let connection = null;
 let dataDirectory = null;
 
@@ -167,11 +174,9 @@ function ensureFts(conn) {
 
 export function init(dataDir) {
   if (connection) return connection;
-  fs.mkdirSync(dataDir, { recursive: true });
   dataDirectory = dataDir;
-  connection = new DatabaseSync(path.join(dataDir, DB_FILE));
-  connection.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
-  migrate(connection);
+  database = openDatabase(path.join(dataDir, DB_FILE), { migrations: MIGRATIONS });
+  connection = database.raw;
   ensureFts(connection);
   return connection;
 }
@@ -186,48 +191,19 @@ export function dataDir() {
 }
 
 export function close() {
-  if (connection) connection.close();
+  if (database) database.close();
+  database = null;
   connection = null;
   dataDirectory = null;
-}
-
-function migrate(conn) {
-  conn.exec("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)");
-  const row = conn.prepare("SELECT MAX(version) AS v FROM schema_version").get();
-  const current = row?.v || 0;
-  for (let i = current; i < MIGRATIONS.length; i++) {
-    conn.exec("BEGIN");
-    try {
-      conn.exec(MIGRATIONS[i]);
-      conn.prepare("INSERT INTO schema_version (version, applied_at) VALUES (?, ?)").run(i + 1, now());
-      conn.exec("COMMIT");
-    } catch (error) {
-      conn.exec("ROLLBACK");
-      throw error;
-    }
-  }
 }
 
 export const uid = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 
-/** Run fn inside a transaction; nested calls reuse the outer one. */
-let depth = 0;
+/** Run fn (synchronous) inside a transaction; a nested call is a savepoint of the outer one. */
 export function transaction(fn) {
-  const conn = db();
-  if (depth > 0) return fn();
-  conn.exec("BEGIN");
-  depth++;
-  try {
-    const out = fn();
-    conn.exec("COMMIT");
-    return out;
-  } catch (error) {
-    conn.exec("ROLLBACK");
-    throw error;
-  } finally {
-    depth--;
-  }
+  db();
+  return database.tx(fn);
 }
 
 export function getSetting(key, fallback = null) {

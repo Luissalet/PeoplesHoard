@@ -5,6 +5,7 @@
 import { z } from "zod";
 import { db, uid, now, transaction } from "./db.js";
 import { fold, ftsPrefixQuery } from "./text.js";
+import { findAnyHandle } from "./handles.js";
 import { isValidBirthday, daysSince } from "./dates.js";
 
 export const ALIAS_KINDS = ["whatsapp", "email", "phone", "handle", "other"];
@@ -280,7 +281,7 @@ export function resolvePersonRef(ref) {
     return { person: null, candidates: exactMatches.map((p) => ({ id: p.id, name: p.name, nickname: p.nickname, circles: p.circles, score: 1 })) };
   }
 
-  const aliasRow = db().prepare("SELECT person_id FROM aliases WHERE value = ? COLLATE NOCASE").get(text);
+  const aliasRow = findAnyHandle(text);
   if (aliasRow) {
     const p = getPerson(aliasRow.person_id);
     if (p) return { person: p, candidates: [] };
