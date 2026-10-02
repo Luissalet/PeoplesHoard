@@ -7,6 +7,7 @@
 // (ask for them with commitments_ingest_minutes).
 import fs from "node:fs";
 import * as family from "./hoard-link.js";
+import { startBackground } from "./hoard-commons/server.js";
 import { ingestFromFunes, nudgeOverdue, pollState, setPollSince } from "./commitments.js";
 
 export const EVENT_TYPE = "funes.minutes.ready";
@@ -15,7 +16,7 @@ const MAX_ATTEMPTS = 5;
 
 const info = { enabled: false, interval_s: 60, last_run_at: null, last_status: "never", last_error: "", ingested: 0, nudged: 0, running: false };
 const attempts = new Map();
-let timer = null;
+let job = null;
 
 export const autoEnabled = (env = process.env) => !["0", "false", "no", "off"].includes(String(env.PEOPLE_COMMITMENTS_AUTO ?? "1").trim().toLowerCase());
 
@@ -112,13 +113,12 @@ export function startPoller({ intervalMs = 60000, env = process.env } = {}) {
   info.enabled = autoEnabled(env);
   info.interval_s = Math.round(intervalMs / 1000);
   if (!info.enabled) { info.last_status = "off"; return false; }
-  timer = setInterval(() => { sweep(); }, intervalMs);
-  timer.unref();
-  setTimeout(() => { sweep(); }, 2000).unref();
+  // the family's startBackground: no overlapping sweeps, a failing one is logged and the loop goes on, timers do not hold the process
+  job = startBackground({ name: "people-commitments", intervalMs, firstDelayMs: 2000, tick: () => sweep() });
   return true;
 }
 
 export function stopPoller() {
-  if (timer) clearInterval(timer);
-  timer = null;
+  job?.stop();
+  job = null;
 }
