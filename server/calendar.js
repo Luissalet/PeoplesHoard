@@ -1,6 +1,7 @@
 // Downloadable iCalendar snapshot of the address book's dated events.
 import { listPeople } from "./people.js";
 import { listReminders } from "./reminders.js";
+import { listCommitments } from "./commitments.js";
 import { addDays, parseBirthday, today } from "./dates.js";
 
 const compact = (date) => date.replaceAll("-", "");
@@ -37,7 +38,7 @@ export function calendarFeed({ from = today(), generatedAt = new Date() } = {}) 
   const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//People's Hoard//Calendar Export//ES", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "X-WR-CALNAME:People's Hoard"];
   const people = listPeople({ archived: "false" });
   const byId = new Map(people.map((person) => [person.id, person]));
-  let birthdays = 0, reminders = 0;
+  let birthdays = 0, reminders = 0, commitments = 0;
   for (const person of people) {
     if (!person.birthday) continue;
     const date = nextRealBirthday(person.birthday, from);
@@ -57,6 +58,16 @@ export function calendarFeed({ from = today(), generatedAt = new Date() } = {}) 
       ...(person ? [`DESCRIPTION:${escapeText(`Contacto: ${person.name}`)}`] : []), "END:VEVENT");
     reminders++;
   }
+  for (const c of listCommitments({ status: "open" })) {
+    if (!c.due) continue;
+    const person = c.person_id ? byId.get(c.person_id) : null;
+    const who = person?.name || c.person_name;
+    const summary = c.direction === "i_owe" ? `Debo${who ? ` a ${who}` : ""}: ${c.text}` : `${who || "Alguien"} me debe: ${c.text}`;
+    lines.push("BEGIN:VEVENT", `UID:commitment-${c.id}@peoples-hoard.local`, `DTSTAMP:${stamp(generatedAt)}`,
+      `DTSTART;VALUE=DATE:${compact(c.due)}`, `DTEND;VALUE=DATE:${compact(addDays(c.due, 1))}`,
+      `SUMMARY:${escapeText(summary)}`, "CATEGORIES:Compromiso", "END:VEVENT");
+    commitments++;
+  }
   lines.push("END:VCALENDAR");
-  return { text: lines.map(fold).join("\r\n") + "\r\n", birthdays, reminders };
+  return { text: lines.map(fold).join("\r\n") + "\r\n", birthdays, reminders, commitments };
 }

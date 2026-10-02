@@ -1,6 +1,6 @@
 {
   "name": "peoples-hoard",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Agenda personal local: quién es quién, qué sabes de cada persona, cuándo hablasteis y qué recordar, para asistentes con MCP.",

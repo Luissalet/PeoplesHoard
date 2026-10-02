@@ -8,7 +8,7 @@ import { DatabaseSync } from "node:sqlite";
 
 export const DB_FILE = "peoples-hoard.db";
 
-const MIGRATIONS = [
+export const MIGRATIONS = [
   `
   CREATE TABLE people (
     id TEXT PRIMARY KEY,
@@ -76,6 +76,47 @@ const MIGRATIONS = [
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
   );
+  `,
+  // 2: commitments ("who promised what to whom and by when") and the review queue for
+  // proposals that need a person picked or a human yes (names that do not resolve, text
+  // pasted by the user, a promise between two third parties).
+  `
+  CREATE TABLE commitments (
+    id TEXT PRIMARY KEY,
+    direction TEXT NOT NULL CHECK (direction IN ('i_owe', 'owed_to_me')),
+    person_id TEXT NULL REFERENCES people(id) ON DELETE SET NULL,
+    person_name_raw TEXT NOT NULL DEFAULT '',
+    text TEXT NOT NULL,
+    due TEXT NULL,
+    due_text TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'done', 'dropped')),
+    source_kind TEXT NOT NULL DEFAULT 'manual' CHECK (source_kind IN ('funes', 'chat', 'manual', 'text', 'mail')),
+    source_ref TEXT NOT NULL DEFAULT '',
+    source_quote TEXT NOT NULL DEFAULT '',
+    dedupe_key TEXT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    done_at TEXT NULL,
+    last_nudged_at TEXT NULL
+  );
+  CREATE INDEX commitments_status_due ON commitments(status, due);
+  CREATE INDEX commitments_person ON commitments(person_id);
+  CREATE UNIQUE INDEX commitments_dedupe ON commitments(dedupe_key) WHERE dedupe_key IS NOT NULL;
+
+  CREATE TABLE commitment_review (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL CHECK (kind IN ('minutes', 'text')),
+    reason TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'resolved', 'discarded')),
+    proposal TEXT NOT NULL,
+    candidates TEXT NOT NULL DEFAULT '[]',
+    dedupe_key TEXT NULL,
+    commitment_id TEXT NULL,
+    created_at TEXT NOT NULL,
+    resolved_at TEXT NULL
+  );
+  CREATE INDEX commitment_review_status ON commitment_review(status, created_at);
+  CREATE UNIQUE INDEX commitment_review_dedupe ON commitment_review(dedupe_key) WHERE dedupe_key IS NOT NULL;
   `,
 ];
 

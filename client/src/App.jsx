@@ -4,11 +4,13 @@ import { Toast } from "./components/ui.jsx";
 import Personas from "./pages/Personas.jsx";
 import Persona from "./pages/Persona.jsx";
 import Agenda from "./pages/Agenda.jsx";
+import Compromisos from "./pages/Compromisos.jsx";
 import Ajustes from "./pages/Ajustes.jsx";
 
 const PAGES = [
   { path: "personas", label: "Personas", icon: "M16 11a3 3 0 100-6 3 3 0 000 6zM8 11a3 3 0 100-6 3 3 0 000 6zM2 20c0-3 3-5 6-5s6 2 6 5M14 15c2.5 0 6 1.5 6 5" },
   { path: "agenda", label: "Agenda", icon: "M7 3v3M17 3v3M4 9h16M5 6h14a1 1 0 011 1v12a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1z" },
+  { path: "compromisos", label: "Compromisos", icon: "M9 12l2 2 4-4M12 3a9 9 0 100 18 9 9 0 000-18z" },
   { path: "ajustes", label: "Ajustes", icon: "M12 8a4 4 0 100 8 4 4 0 000-8zM4 12h2m12 0h2M12 4v2m0 12v2" },
 ];
 
@@ -60,6 +62,7 @@ export default function App() {
   let content = null;
   if (route.path === "personas" && route.param) content = <Persona key={route.param} id={route.param} />;
   else if (route.path === "agenda") content = <Agenda />;
+  else if (route.path === "compromisos") content = <Compromisos />;
   else if (route.path === "ajustes") content = <Ajustes />;
   else content = <Personas />;
 
@@ -79,6 +82,11 @@ export default function App() {
               <a key={p.path} href={`#/${p.path}`} className="nav-link shrink-0 text-[13px]" aria-current={p.path === route.path ? "page" : undefined}>
                 <Icon d={p.icon} />
                 {p.label}
+                {p.path === "compromisos" && state?.commitments && (state.commitments.pending_review > 0 || state.commitments.overdue > 0) && (
+                  <span className="chip chip-warn ml-1" data-testid="nav-badge" title={`${state.commitments.overdue} vencidos · ${state.commitments.pending_review} por revisar`}>
+                    {state.commitments.overdue + state.commitments.pending_review}
+                  </span>
+                )}
               </a>
             ))}
           </nav>

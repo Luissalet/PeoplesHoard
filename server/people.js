@@ -153,6 +153,8 @@ export function updatePerson(id, patch) {
 }
 
 export function deletePerson(id) {
+  // Commitments outlive the person: they keep the name they had (the link is cleared by the foreign key).
+  db().prepare("UPDATE commitments SET person_name_raw = ? WHERE person_id = ?").run(getPerson(id)?.name || "", id);
   const changes = db().prepare("DELETE FROM people WHERE id = ?").run(id).changes;
   db().prepare("DELETE FROM people_fts WHERE person_id = ?").run(id);
   return changes > 0;
@@ -320,6 +322,7 @@ export function mergePeople(keepId, dropId) {
     db().prepare("UPDATE facts SET person_id = ? WHERE person_id = ?").run(keepId, dropId);
     db().prepare("UPDATE interactions SET person_id = ? WHERE person_id = ?").run(keepId, dropId);
     db().prepare("UPDATE reminders SET person_id = ? WHERE person_id = ?").run(keepId, dropId);
+    db().prepare("UPDATE commitments SET person_id = ? WHERE person_id = ?").run(keepId, dropId);
     const dropAliases = db().prepare("SELECT * FROM aliases WHERE person_id = ?").all(dropId);
     for (const a of dropAliases) {
       try {

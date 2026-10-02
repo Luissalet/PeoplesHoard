@@ -11,8 +11,12 @@ import { calendarFeed } from "./calendar.js";
 import { personBrief } from "./brief.js";
 import { dataDir } from "./db.js";
 import { manifest, serviceWorker } from "./manifest.js";
+import * as commitments from "./commitments.js";
+import { syncStatus, sweep } from "./commitments-poller.js";
 import * as family from "./hoard-link.js";
 
+// Express 4 does not catch a rejected promise: hand it to the error handler.
+const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 const notFound = (res) => res.status(404).json({ error: "No existe." });
 const exportSchema = z.object({
   people: z.array(z.record(z.string(), z.any())),
@@ -20,6 +24,7 @@ const exportSchema = z.object({
   facts: z.array(z.record(z.string(), z.any())),
   interactions: z.array(z.record(z.string(), z.any())),
   reminders: z.array(z.record(z.string(), z.any())),
+  commitments: z.array(z.record(z.string(), z.any())).optional(),
 });
 
 export function installRoutes(app, { version, dataDirConfigured }) {
@@ -32,6 +37,7 @@ export function installRoutes(app, { version, dataDirConfigured }) {
       version,
       dataDir: dataDir(),
       circles: people.circleCounts(),
+      commitments: commitments.counts(),
     });
   });
 
@@ -94,6 +100,51 @@ export function installRoutes(app, { version, dataDirConfigured }) {
   });
   app.delete("/api/reminders/:id", (req, res) => res.json({ ok: reminders.deleteReminder(req.params.id) }));
 
+  // ---------- Commitments ----------
+  // Fixed paths first: they must not be read as an id.
+  app.get("/api/commitments", (req, res) => {
+    const q = req.query;
+    res.json({
+      commitments: commitments.listCommitments({
+        person: q.person || undefined, direction: q.direction || undefined, status: q.status || "open",
+        overdue: q.overdue === "1" || q.overdue === "true", due_before: q.due_before || undefined, q: q.q || undefined,
+      }),
+      pending_review: commitments.pendingReviewCount(),
+    });
+  });
+  app.get("/api/commitments/digest", (req, res) => res.json(commitments.commitmentsDigest({ days: req.query.days ? Number(req.query.days) : 7 })));
+  app.get("/api/commitments/review", (req, res) => {
+    res.json({ review: commitments.listReview({ status: req.query.status || "pending" }), pending: commitments.pendingReviewCount() });
+  });
+  app.post("/api/commitments/review/:id", (req, res) => {
+    const out = commitments.resolveReview(req.params.id, req.body || {});
+    return out ? res.json(out) : notFound(res);
+  });
+  app.get("/api/commitments/sync", (req, res) => res.json(syncStatus()));
+  app.post("/api/commitments/sync", asyncRoute(async (req, res) => res.json({ result: await sweep(), sync: syncStatus() })));
+  app.post("/api/commitments/ingest", asyncRoute(async (req, res) => {
+    const body = req.body || {};
+    const out = await commitments.ingestFromFunes(body.session_id, { regenerate: !!body.regenerate });
+    res.json({ ...out, pending_review: commitments.pendingReviewCount() });
+  }));
+  app.post("/api/commitments/extract", asyncRoute(async (req, res) => {
+    const body = req.body || {};
+    res.json(await commitments.extractFromText({ text: body.text, person_hint: body.person_hint || "" }));
+  }));
+  app.post("/api/commitments", (req, res) => {
+    const out = commitments.addCommitmentByRef({ source_kind: "manual", ...(req.body || {}) });
+    res.status(out.created ? 201 : 200).json(out);
+  });
+  app.get("/api/commitments/:id", (req, res) => {
+    const out = commitments.getCommitment(req.params.id);
+    return out ? res.json(out) : notFound(res);
+  });
+  app.patch("/api/commitments/:id", (req, res) => {
+    const out = commitments.updateCommitmentByRef(req.params.id, req.body || {});
+    return out ? res.json(out) : notFound(res);
+  });
+  app.delete("/api/commitments/:id", (req, res) => res.json({ ok: commitments.deleteCommitment(req.params.id) }));
+
   // ---------- Discovery / agenda ----------
   app.get("/api/resolve", (req, res) => {
     const name = req.query.name || "";
@@ -126,6 +177,7 @@ export function installRoutes(app, { version, dataDirConfigured }) {
       facts: ids.flatMap((id) => facts.listFacts(id)),
       interactions: ids.flatMap((id) => interactions.listInteractions(id)),
       reminders: reminders.listReminders({}),
+      commitments: commitments.listCommitments({ status: "all", limit: 2000 }),
     });
   });
 
@@ -179,7 +231,23 @@ export function installRoutes(app, { version, dataDirConfigured }) {
       reminders.createReminder({ person_id: r.person_id ? idMap.get(r.person_id) || null : null, due: r.due, text: r.text, kind: r.kind });
       importedReminders++;
     }
-    res.json({ people: importedPeople, aliases: importedAliases, facts: importedFacts, interactions: importedInteractions, reminders: importedReminders });
+    let importedCommitments = 0;
+    for (const c of data.commitments || []) {
+      try {
+        const personId = c.person_id ? idMap.get(c.person_id) || null : null;
+        const source = c.source || {};
+        const added = commitments.addCommitment({
+          direction: c.direction, person_id: personId, person_name_raw: personId ? "" : c.person_name_raw || c.person_name || "",
+          text: c.text, due: c.due || null, due_text: c.due_text || "", source_kind: source.kind || "manual",
+          source_ref: source.ref || "", source_quote: source.quote || "",
+        }, { emit: false });
+        if (c.status === "done" || c.status === "dropped") commitments.updateCommitment(added.commitment.id, { status: c.status }, { emit: false });
+        importedCommitments++;
+      } catch {
+        // an entry that does not validate is skipped rather than failing the whole import
+      }
+    }
+    res.json({ people: importedPeople, aliases: importedAliases, facts: importedFacts, interactions: importedInteractions, reminders: importedReminders, commitments: importedCommitments });
   });
 
   // PWA manifest and service worker.

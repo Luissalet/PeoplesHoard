@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { api } from "../api.js";
 import { useApp } from "../App.jsx";
 import { Page, Section, Field, useAction, ConfirmDialog } from "../components/ui.jsx";
+import { PersonCommitments } from "../components/Commitments.jsx";
 import { FactsSection, AliasesSection, InteractionsSection, RemindersSection } from "../components/PersonSections.jsx";
 import { daysAgoLabel, birthdayLabel } from "../format.js";
 
@@ -198,6 +199,8 @@ export default function Persona({ id }) {
 
       <div className="mb-4"><ConversationBrief brief={brief} /></div>
 
+      <div className="mb-4"><Section title="Compromisos"><PersonCommitments person={person} reload={load} notify={notify} /></Section></div>
+
       <div className="grid gap-4 lg:grid-cols-2">
         <Section title="Resumen">
           <textarea
@@ -234,7 +237,7 @@ export default function Persona({ id }) {
       <ConfirmDialog
         open={confirmingDelete}
         title="Borrar persona"
-        text={`Se borrará a "${person.name}" junto con sus alias, datos, contactos y recordatorios. Esta acción no se puede deshacer.`}
+        text={`Se borrará a "${person.name}" junto con sus alias, datos, contactos y recordatorios; sus compromisos se conservan con su nombre. Esta acción no se puede deshacer.`}
         onConfirm={confirmDelete}
         onCancel={() => setConfirmingDelete(false)}
       />

@@ -4,6 +4,7 @@ import { db } from "./db.js";
 import { getPersonFull } from "./people.js";
 import { daysSince, today } from "./dates.js";
 import { fold } from "./text.js";
+import { openCommitmentsFor } from "./commitments.js";
 
 export function personBrief(personId) {
   const full = getPersonFull(personId, { interactionsLimit: 5 });
@@ -42,5 +43,7 @@ export function personBrief(personId) {
       days_until_due: Math.round((Date.parse(`${item.due}T00:00:00Z`) - Date.parse(`${asOf}T00:00:00Z`)) / 86400000),
       source: `reminder:${item.id}`,
     })),
+    // Promises both ways: what I owe this person and what they owe me (source ids as commitment:<id>).
+    open_commitments: openCommitmentsFor(personId, { today: asOf }),
   };
 }

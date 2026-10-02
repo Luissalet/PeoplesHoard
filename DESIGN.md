@@ -179,6 +179,7 @@ Escritorio: rejilla `224px | 1fr`; índice pegado arriba a `100dvh`; contenido c
 - **Personas:** buscador, chips de círculo, rejilla de tarjetas (`2` columnas en tablet, `3` en escritorio).
 - **Persona:** cabecera con nombre/apodo/círculos/cumpleaños/ubicación (editable como formulario completo, no campo a campo); resumen y notas en dos columnas; datos y alias en dos columnas; línea de tiempo y recordatorios en dos columnas.
 - **Agenda:** tres columnas (cumpleaños, recordatorios, abandonados) que se apilan en móvil.
+- **Compromisos:** «Por revisar» arriba (solo si hay propuestas), después la lista con filtros en una fila que se parte en móvil, y abajo dos paneles (anotar uno / traer desde una reunión o un texto). La ficha de persona lleva una sección «Compromisos» con dos columnas, «Le debo» y «Me debe».
 - **Ajustes:** dos paneles, copia de seguridad e instalación.
 
 Hasta `768px` el índice pasa a barra superior desplazable, la rejilla de tarjetas a una columna, y todas las secciones de dos columnas de la ficha de persona se apilan.
@@ -214,6 +215,10 @@ Chip redondeado tipo filtro (`circle-filter`), con el nombre del círculo y su r
 ### Agenda
 
 Tres paneles iguales. Cumpleaños ordena por días restantes y muestra la edad si se conoce el año. Recordatorios muestra la fecha, el texto y, si está ligado a una persona, un enlace a su ficha, con un botón "Hecho" que completa sin salir de la página. Abandonados muestra "hace N días" y la cadencia deseada, con un botón "He hablado hoy" que registra un contacto rápido al instante.
+
+### Compromisos
+
+Cada compromiso es una fila con casilla «cumplido», el texto, una etiqueta de sentido (`chip-warn` para «Yo debo», `chip-circle` para «Me deben»), la persona como enlace, la fecha en palabras («venció hace 4 días», «para mañana», «el viernes» si solo hay palabras; `chip-danger` si está vencido) y el origen (Reunión, Chat, Texto, Manual) con la cita literal desplegable. Las acciones (cambiar fecha, descartar, borrar) son enlaces de texto a la derecha y pasan bajo el texto en móvil. Las propuestas por revisar muestran el motivo en una línea, la cita y una fila de botones que resuelven al instante: un botón por candidato, «Crear a …», «Otra persona…», «Sin persona» y «Descartar»; si no se sabe quién debe, hay que elegirlo antes de aceptar. La insignia de la navegación suma vencidos y propuestas.
 
 ### Feedback
 

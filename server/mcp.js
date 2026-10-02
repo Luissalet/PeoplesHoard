@@ -32,7 +32,7 @@ for (const tool of TOOLS)
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ name: tool.name, arguments: args }),
-          signal: AbortSignal.timeout(90000),
+          signal: AbortSignal.timeout(tool.timeoutMs || 90000),
         });
         const body = await response.json();
         bodyReceived = true;

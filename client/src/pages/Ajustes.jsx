@@ -30,7 +30,7 @@ export default function Ajustes() {
       const data = JSON.parse(text);
       const out = await run(() => api.importBackup(data), null);
       if (out) {
-        notify({ kind: "ok", text: `Importadas ${out.people} personas, ${out.aliases} alias, ${out.facts} datos, ${out.interactions} contactos y ${out.reminders} recordatorios.` });
+        notify({ kind: "ok", text: `Importadas ${out.people} personas, ${out.aliases} alias, ${out.facts} datos, ${out.interactions} contactos, ${out.reminders} recordatorios y ${out.commitments ?? 0} compromisos.` });
         refresh();
       }
     } catch (e) {
@@ -45,7 +45,7 @@ export default function Ajustes() {
     <Page title="Ajustes" description="Copia de seguridad y datos de la instalación.">
       <div className="grid gap-4 lg:grid-cols-2">
         <Section title="Copia de seguridad">
-          <p className="help mb-3">Exporta toda tu agenda (personas, alias, datos, línea de tiempo y recordatorios) a un archivo JSON, o impórtala de vuelta. Importar siempre crea personas nuevas; no sobrescribe las existentes.</p>
+          <p className="help mb-3">Exporta toda tu agenda (personas, alias, datos, línea de tiempo, recordatorios y compromisos) a un archivo JSON, o impórtala de vuelta. Importar siempre crea personas nuevas; no sobrescribe las existentes.</p>
           <div className="flex flex-wrap gap-2">
             <button type="button" className="btn btn-primary" onClick={exportBackup} disabled={busy}>Exportar JSON</button>
             <button type="button" className="btn" onClick={() => fileRef.current?.click()} disabled={busy || importing}>Importar JSON</button>

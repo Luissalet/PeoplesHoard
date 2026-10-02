@@ -2,6 +2,7 @@
 // reminders due, and people overdue for contact ("neglected").
 import { listPeople } from "./people.js";
 import { listReminders } from "./reminders.js";
+import { listCommitments } from "./commitments.js";
 import { nextBirthday, daysSince, today, addDays } from "./dates.js";
 
 export function upcomingReport({ days = 30 } = {}) {
@@ -47,14 +48,18 @@ export function upcomingReport({ days = 30 } = {}) {
   }
   neglected.sort((a, b) => (b.overdue_by ?? Infinity) - (a.overdue_by ?? Infinity));
 
-  return { days: window, birthdays, reminders, neglected, summary: summarize(birthdays, reminders, neglected) };
+  const horizon = addDays(from, window);
+  const commitments = listCommitments({ status: "open", today: from }).filter((c) => c.overdue || (c.due && c.due <= horizon));
+
+  return { days: window, birthdays, reminders, neglected, commitments, summary: summarize(birthdays, reminders, neglected, commitments) };
 }
 
-function summarize(birthdays, reminders, neglected) {
+function summarize(birthdays, reminders, neglected, commitments) {
   const parts = [
     birthdays.length ? `${birthdays.length} cumpleaños próximos` : "sin cumpleaños próximos",
     reminders.length ? `${reminders.length} recordatorios pendientes` : "sin recordatorios pendientes",
     neglected.length ? `${neglected.length} personas con las que toca hablar` : "nadie abandonado",
+    commitments.length ? `${commitments.length} ${commitments.length === 1 ? "compromiso vencido o próximo" : "compromisos vencidos o próximos"}` : "sin compromisos vencidos ni próximos",
   ];
   return `${parts.join(", ")}.`;
 }

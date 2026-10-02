@@ -26,6 +26,8 @@ El servidor escucha únicamente en `127.0.0.1`. Si el puerto 5182 está ocupado 
 | `PORT_STRICT=1` | No buscar otro puerto. |
 | `PEOPLE_DATA_DIR` | Carpeta de datos (por defecto `<repo>/data`, ignorada por git). Contiene `peoples-hoard.db` y `mcp-token`. |
 | `PEOPLE_ALLOWED_HOSTS` | Nombres de host adicionales aceptados detrás de un túnel (ver más abajo). |
+| `PEOPLE_COMMITMENTS_AUTO=0` | Apaga el sondeo que lee las actas de reuniones desde el hub de Hoard Link (por defecto activo; ver Compromisos). |
+| `HOARD_HUB_URL` / `HOARD_EVENTS=0` | Dónde está el hub de Hoard Link (lo encuentra solo) y un interruptor para dejar de enviar eventos. |
 | `PEOPLE_URL` | Puente MCP: URL de la aplicación (por defecto `http://127.0.0.1:5182`). Debe ser local. |
 | `PEOPLE_TOKEN_FILE` / `PEOPLE_TOKEN` | Puente MCP: de dónde leer el token (por defecto `<datos>/mcp-token`). |
 
@@ -39,8 +41,19 @@ Una vez abierta a través del túnel, el navegador ofrece instalarla (PWA).
 
 - **Personas** — búsqueda instantánea (sin distinguir acentos, encuentra nombres parciales en cualquier parte de la palabra, también por apodo y alias), chips de círculo como filtro, tarjetas con nombre, círculos, «hace 12 días» del último contacto y una insignia de cumpleaños próximo, y un formulario rápido de alta.
 - **Ficha de persona** — preparación de conversación en vivo con datos, cinco contactos recientes y recordatorios abiertos; cabecera (nombre, apodo, círculos, cumpleaños, ubicación, cadencia de contacto deseada) editable como un único formulario; resumen y notas en textareas que se guardan al salir del campo; datos como lista de clave/valor editable («le gusta» / «el senderismo»); línea de tiempo de contactos con un formulario de una línea («he hablado hoy»); recordatorios con fecha y una casilla «hecho»; editor de alias (WhatsApp, correo, teléfono, otro identificador); archivar, fusionar con un duplicado y borrar.
-- **Agenda** — próximos cumpleaños con la edad cuando se conoce el año, recordatorios pendientes y una lista de «abandonados»: personas con las que no habláis dentro de la cadencia deseada, con un botón «he hablado hoy» que apunta un contacto rápido al instante.
+- **Compromisos** — quién prometió qué a quién y para cuándo, en los dos sentidos: lo que tú debes a una persona (`i_owe`) y lo que ella te debe a ti (`owed_to_me`). Una página con filtros (sentido, estado, persona, vencidos, texto), una cola de revisión, un formulario para anotar uno y las dos vías para traerlos (abajo); una sección *Compromisos* en cada ficha; y una insignia en la navegación con los vencidos y las propuestas en espera.
+- **Agenda** — próximos cumpleaños con la edad cuando se conoce el año, recordatorios pendientes, un bloque *Compromisos* (vencidos y de esta semana) y una lista de «abandonados»: personas con las que no habláis dentro de la cadencia deseada, con un botón «he hablado hoy» que apunta un contacto rápido al instante. **Descargar calendario** exporta los cumpleaños, los recordatorios abiertos y los compromisos abiertos con fecha a un archivo `.ics`.
 - **Ajustes** — carpeta de datos y versión, exportación/importación JSON para copias de seguridad.
+
+### Compromisos
+
+Un compromiso tiene un sentido (`i_owe` / `owed_to_me`), una persona (o el nombre tal como se dijo si no está en la agenda), un texto, un día (`due`) o las palabras usadas (`due_text`), un estado (`open`, `done`, `dropped`) y su origen (`funes`, `chat`, `manual`, `text`, `mail`, con referencia y la cita literal). Los guarda People's Hoard; las demás aplicaciones solo le pasan material.
+
+- **De las reuniones.** Funes escribe el acta de una reunión grabada (resumen, decisiones y tareas con su evidencia). People's Hoard la pide a través del hub de Hoard Link (`scribe_minutes` en Funes, sin leer nunca los archivos de Funes) y convierte cada tarea en un compromiso: lo que dijiste *tú* que harías es `i_owe` (la otra persona es la contraparte); lo que dijo otra persona es `owed_to_me`. Los nombres se resuelven como en el resto de la aplicación (exacto, alias, aproximado). Un nombre que no coincide con nadie o con varias personas, un responsable que el acta no nombra y una promesa entre otras dos personas van a una **cola de revisión**: elige un candidato, crea la persona o descártalo. La reunión se apunta una sola vez en la línea de tiempo de cada persona como *Reunión: <título>*. Mientras el hub responde, un sondeo cada 60 segundos lee los eventos `funes.minutes.ready` (`GET <hub>/api/events?type=funes.minutes.ready&since_id=…`, con el token de esta aplicación; el último id queda guardado en la base de datos; en el primer contacto empieza desde «ahora», así que no se reprocesan solas las reuniones antiguas: para esas está `commitments_ingest_minutes`). `PEOPLE_COMMITMENTS_AUTO=0` apaga el sondeo.
+- **De un texto.** Pega un correo o una conversación: el modelo local (a través del hub) propone compromisos, cada uno con las palabras exactas que lo respaldan; las propuestas cuya cita no está literalmente en el texto se descartan, y todo va a la cola de revisión, nunca directo. Sin modelo cargado la respuesta es `no_model`.
+- **Del asistente.** `commitment_add` anota uno dicho en un chat. Un día solo se guarda si es un día real o las palabras nombran exactamente uno («el martes», «en dos semanas», «15 de octubre»); si no, las palabras quedan como `due_text`: no se adivina nada.
+- **Eventos.** `people.commitment.added`, `people.commitment.done` y `people.commitment.overdue` (una vez por compromiso; una fecha nueva merece un aviso nuevo) se envían al hub, para que una regla los convierta en una notificación.
+- **Fusionar y borrar.** Al fusionar dos personas, sus compromisos pasan a la que se queda; al borrar una persona, sus compromisos se conservan con el nombre tal como estaba.
 
 Los cumpleaños se guardan como `AAAA-MM-DD` (año conocido) o `--MM-DD` (año desconocido); la ventana de próximos eventos y el cálculo de la edad tratan bien el cruce de diciembre a enero y el 29 de febrero en años no bisiestos.
 
@@ -58,12 +71,12 @@ Los cumpleaños se guardan como `AAAA-MM-DD` (año conocido) o `--MM-DD` (año d
 
 `faustus-plugin.json` describe la aplicación para Faustus (comprobación de salud, arranque y comando MCP con marcadores).
 
-Herramientas (13):
+Herramientas (22):
 
 | Herramienta | Uso |
 | --- | --- |
 | `find_people` | Búsqueda difusa, sin acentos, por nombre parcial sobre personas, apodos y alias; devuelve candidatos puntuados. |
-| `get_person` | Ficha completa: datos, últimos 10 contactos, recordatorios abiertos, días desde el último contacto. |
+| `get_person` | Ficha completa: datos, últimos 10 contactos, recordatorios abiertos, compromisos abiertos en los dos sentidos, días desde el último contacto. |
 | `prepare_person_chat` | Preparación breve y actualizada para hablar con alguien, con referencias a los registros y datos discrepantes señalados. |
 | `upsert_person` | Crear o actualizar una persona por id o nombre exacto; todos los campos salvo el nombre son parciales. |
 | `add_alias` | Añadir un identificador (WhatsApp, correo, teléfono u otro) para que futuros mensajes resuelvan a esa persona; idempotente. |
@@ -73,8 +86,16 @@ Herramientas (13):
 | `complete_reminder` | Marcar un recordatorio como hecho. |
 | `upcoming` | Cumpleaños, recordatorios pendientes y personas abandonadas en N días, con un resumen en una línea. |
 | `list_people` | Listar personas, opcionalmente filtradas por círculo. |
-| `merge_people` | Fusionar un duplicado en otra persona (destructiva). |
-| `delete_person` | Borrar una persona y todo lo que tiene enlazado (destructiva). |
+| `commitments_list` | Compromisos filtrados por persona, sentido, estado, vencidos y fecha. |
+| `commitment_add` | Anotar una promesa: yo debo algo a alguien, o me lo deben. Palabras como «el viernes» pasan a fecha si nombran un único día. |
+| `commitment_update` | Cambiar el texto, el día, la persona o el sentido de un compromiso. |
+| `commitment_done` / `commitment_drop` | Marcar un compromiso como cumplido o como ya no aplicable. |
+| `commitments_review` | Ver la cola de revisión o resolver una propuesta (aceptarla con una persona, o descartarla). Pregunta antes al usuario. |
+| `commitments_ingest_minutes` | Pedir a Funes (por el hub) el acta de una reunión y anotar sus tareas. Informa de `no_model`, `hub_down`, `tool_missing`, `unknown_session` o `funes_error` en vez de fallar. |
+| `commitments_extract_text` | Proponer compromisos a partir de un texto pegado con el modelo local; van a la cola de revisión. |
+| `commitments_digest` | Qué está vencido y qué vence pronto, con palabras: «le debes a X…», «X te debe…». |
+| `merge_people` | Fusionar un duplicado en otra persona; los compromisos también pasan (destructiva). |
+| `delete_person` | Borrar una persona y todo lo que tiene enlazado; los compromisos se conservan con el nombre tal como estaba (destructiva). |
 
 Cada descripción termina con una línea `Sinónimos:` con las palabras que se usan en español. Los nombres ambiguos devuelven `candidates` para que el asistente pregunte en vez de adivinar: dos personas pueden compartir nombre de pila.
 
@@ -85,12 +106,12 @@ Cada descripción termina con una línea `Sinónimos:` con las palabras que se u
 - La búsqueda combina una pasada por subcadena con plegado de acentos (encuentra coincidencias parciales en mitad de una palabra) con una pasada FTS5 por prefijo para ampliar el alcance sobre notas y datos.
 - Solo se aceptan peticiones desde `localhost` / `127.0.0.1`; las peticiones de otras webs se rechazan.
 - El par tipo + valor de un alias es único en toda la agenda: un nombre de WhatsApp, un correo o un teléfono solo puede resolver a una persona.
-- El servidor no hace ninguna llamada a internet.
+- Las únicas llamadas de red son al hub local de Hoard Link (eventos, el proxy hacia las actas de Funes y el modelo local); cuando no está, la aplicación funciona como antes y lo dice donde importa.
 
 ## Verificación
 
 ```sh
-npm test        # node --test tests/*.test.js — fechas/plegado, lógica de dominio, API HTTP, autenticación y herramientas
+npm test        # node --test tests/*.test.js — fechas/plegado, lógica de dominio, API HTTP, autenticación y herramientas, compromisos (con un hub de pega)
 npm run build   # vite build → dist/
 ```
 
