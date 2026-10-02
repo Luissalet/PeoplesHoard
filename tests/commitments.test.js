@@ -189,6 +189,109 @@ test("a person added to the proposal brings the meeting to their timeline once",
   assert.equal(listInteractions(rosa).filter((i) => i.summary === "Reunión: Visita a la obra").length, 1);
 });
 
+test("nothing uncertain goes straight into the list: no owner, otros, labels, no person for my own promise", async () => {
+  const before = (await s.agent("commitments_list", { status: "all", limit: 500 })).body.commitments.length;
+  hub.state.minutes["ses-live"] = ready({ session_id: "ses-live", title: "Reunión de prueba", started_at: "2026-10-02T04:00:00", action_items: [
+    // the live case: owner unknown ("otros"), counterpart not in the book
+    ev({ owner: "otros", action: "Enviar el presupuesto", counterpart: "Marta Ficticia", evidence: { start_s: 5, end_s: 9, speaker: "S1", quote: "Yo me encargo de enviarle el presupuesto a Marta Ficticia el martes que viene" } }),
+    ev({ owner: "S1", action: "Revisar el borrador", counterpart: "Marta Lozano", evidence: { start_s: 20, end_s: 24, speaker: "S1", quote: "alguien revisa el borrador" } }),
+    ev({ owner: null, action: "Sin dueño ni persona", evidence: { start_s: 30, end_s: 34, speaker: "S1", quote: "hay que hacerlo" } }),
+    ev({ owner: "yo", action: "Promesa mía sin destinatario", counterpart: "otros", evidence: { start_s: 40, end_s: 44, speaker: "yo", quote: "yo lo hago" } }),
+    ev({ owner: "yo", action: "Promesa mía a alguien que no conozco", counterpart: "Marta Ficticia", evidence: { start_s: 50, end_s: 54, speaker: "yo", quote: "yo le mando el borrador" } }),
+    ev({ owner: "Marta Ficticia", action: "Devolverme el contrato", counterpart: "yo", evidence: { start_s: 60, end_s: 64, speaker: "S1", quote: "Marta Ficticia me tiene que devolver el contrato" } }),
+    // certain: me to a known person
+    ev({ owner: "yo", action: "Llamar a Pedro", counterpart: "Pedro Gil", evidence: { start_s: 70, end_s: 74, speaker: "yo", quote: "yo llamo a Pedro" } }),
+  ] });
+  const out = (await s.agent("commitments_ingest_minutes", { session_id: "ses-live" })).body;
+  assert.equal(out.items, 7);
+  assert.equal(out.created, 1, "only the item with a certain direction and person is recorded");
+  assert.equal(out.queued, 6);
+  const list = (await s.agent("commitments_list", { status: "all", limit: 500 })).body.commitments;
+  assert.equal(list.length, before + 1);
+  assert.ok(!list.some((c) => c.person_name === "" && c.source.ref?.startsWith("ses-live")), "no commitment without a person");
+  const queue = (await s.agent("commitments_review", {})).body.review.filter((r) => r.proposal.source.ref.startsWith("ses-live@"));
+  const byText = Object.fromEntries(queue.map((r) => [r.proposal.text, r]));
+  assert.equal(byText["Enviar el presupuesto"].reason, "unassigned");
+  assert.equal(byText["Enviar el presupuesto"].proposal.direction, null, "the direction is left to the user");
+  assert.equal(byText["Enviar el presupuesto"].proposal.person_name_raw, "Marta Ficticia");
+  assert.equal(byText["Revisar el borrador"].reason, "unassigned");
+  assert.equal(byText["Revisar el borrador"].candidates[0].id, marta.id, "a counterpart who is in the book is offered");
+  assert.equal(byText["Sin dueño ni persona"].reason, "unassigned");
+  assert.equal(byText["Promesa mía sin destinatario"].reason, "no_person");
+  assert.equal(byText["Promesa mía sin destinatario"].proposal.direction, "i_owe");
+  assert.equal(byText["Promesa mía a alguien que no conozco"].reason, "unknown");
+  assert.equal(byText["Devolverme el contrato"].reason, "unknown");
+  assert.equal(byText["Devolverme el contrato"].proposal.direction, "owed_to_me");
+});
+
+test("a wrongly read item can be corrected: flip the direction and pick the person, from the queue or from the list", async () => {
+  const queue = (await s.agent("commitments_review", {})).body.review;
+  const wrong = queue.find((r) => r.proposal.text === "Enviar el presupuesto");
+  // accepted from the queue with the direction and person the user chooses
+  const fixed = (await s.agent("commitments_review", { action: "resolve", id: wrong.id, decision: "accept", direction: "i_owe", create_person: "Marta Ficticia" })).body.commitment;
+  assert.equal(fixed.direction, "i_owe");
+  assert.equal(fixed.person_name, "Marta Ficticia");
+  // and an item already in the list can be flipped and re-pointed
+  const flipped = await s.call("PATCH", `/api/commitments/${fixed.id}`, { direction: "owed_to_me", person_id: pedro.id });
+  assert.equal(flipped.body.direction, "owed_to_me");
+  assert.equal(flipped.body.person_id, pedro.id);
+  assert.equal((await s.call("PATCH", `/api/commitments/${fixed.id}`, { person_id: null })).body.person_id, null);
+  // leave the queue as the other tests expect it
+  for (const r of (await s.agent("commitments_review", {})).body.review) await s.agent("commitments_review", { action: "resolve", id: r.id, decision: "discard" });
+});
+
+test("replace re-reads a meeting: untouched items go, what the user decided stays", async () => {
+  const sid = "ses-replace";
+  const items = (owner) => [
+    ev({ owner, action: "Entregar la maqueta", counterpart: "Pedro Gil", evidence: { start_s: 5, end_s: 9, speaker: "S1", quote: "te entrego la maqueta" } }),
+    ev({ owner: "yo", action: "Pagar la señal", counterpart: "Marta Lozano", evidence: { start_s: 15, end_s: 19, speaker: "S1", quote: "te pago la señal" } }),
+    ev({ owner: "yo", action: "Mandar los planos", counterpart: "Pedro Gil", evidence: { start_s: 25, end_s: 29, speaker: "S1", quote: "te mando los planos" } }),
+    ev({ owner: "Gregorio", action: "Visitar la obra", evidence: { start_s: 35, end_s: 39, speaker: "S1", quote: "yo visito la obra" } }),
+  ];
+  hub.state.minutes[sid] = ready({ session_id: sid, title: "Maqueta", started_at: "2026-10-02T09:00:00", action_items: items("otros") });
+  const first = (await s.agent("commitments_ingest_minutes", { session_id: sid })).body;
+  assert.equal(first.created, 2);
+  assert.equal(first.queued, 2);
+  const open = (await s.agent("commitments_list", { limit: 500 })).body.commitments.filter((c) => c.source.ref.startsWith(`${sid}@`));
+  const pay = open.find((c) => c.text === "Pagar la señal");
+  const send = open.find((c) => c.text === "Mandar los planos");
+  await s.agent("commitment_done", { id: pay.id });                                      // touched: done
+  await s.agent("commitment_update", { id: send.id, due_text: "mañana" });                // touched: edited
+  const queue = (await s.agent("commitments_review", {})).body.review.filter((r) => r.proposal.source.ref.startsWith(`${sid}@`));
+  const sofia = queue.find((r) => r.proposal.text === "Visitar la obra");
+  await s.agent("commitments_review", { action: "resolve", id: sofia.id, decision: "discard" });  // decided: discarded
+  assert.equal((await s.agent("commitments_ingest_minutes", { session_id: sid })).body.created, 0);
+
+  // the model now reads the first item properly: Pedro owes me the model
+  hub.state.minutes[sid] = ready({ session_id: sid, title: "Maqueta", started_at: "2026-10-02T09:00:00", action_items: items("Pedro Gil").map((i) => i.counterpart === "Pedro Gil" && i.owner === "Pedro Gil" ? { ...i, counterpart: "yo" } : i) });
+  const redo = (await s.agent("commitments_ingest_minutes", { session_id: sid, replace: true })).body;
+  assert.equal(redo.status, "ingested");
+  assert.deepEqual(redo.replaced, { commitments: 0, review: 1 }, "the open item was waiting in the queue; the touched ones are not replaced");
+  const after = (await s.agent("commitments_list", { status: "all", limit: 500 })).body.commitments.filter((c) => c.source.ref.startsWith(`${sid}@`));
+  assert.equal(after.filter((c) => c.text === "Pagar la señal").length, 1);
+  assert.equal(after.find((c) => c.text === "Pagar la señal").status, "done");
+  assert.equal(after.filter((c) => c.text === "Mandar los planos").length, 1);
+  assert.equal(after.find((c) => c.text === "Entregar la maqueta").direction, "owed_to_me");
+  assert.equal(after.find((c) => c.text === "Visitar la obra"), undefined, "a discarded proposal is not brought back");
+
+  // an untouched item that was wrong is replaced (deleting it by hand also works)
+  const wrong = (await s.agent("commitment_add", { direction: "owed_to_me", text: "Item de otra fuente" })).body.commitment;
+  hub.state.minutes["ses-x"] = ready({ session_id: "ses-x", title: "X", started_at: "2026-10-02T09:00:00", action_items: [
+    ev({ owner: "Pedro Gil", action: "Revisar el plano", evidence: { start_s: 3, end_s: 6, speaker: "S1", quote: "reviso el plano" } }) ] });
+  await s.agent("commitments_ingest_minutes", { session_id: "ses-x" });
+  const placed = (await s.agent("commitments_list", {})).body.commitments.find((c) => c.source.ref === "ses-x@3");
+  assert.equal(placed.direction, "owed_to_me");
+  hub.state.minutes["ses-x"] = ready({ session_id: "ses-x", title: "X", started_at: "2026-10-02T09:00:00", action_items: [
+    ev({ owner: "yo", action: "Revisar el plano", counterpart: "Pedro Gil", evidence: { start_s: 3, end_s: 6, speaker: "S1", quote: "reviso el plano" } }) ] });
+  assert.equal((await s.agent("commitments_ingest_minutes", { session_id: "ses-x" })).body.created, 0, "without replace the first reading stands");
+  const replaced = (await s.agent("commitments_ingest_minutes", { session_id: "ses-x", replace: true })).body;
+  assert.deepEqual(replaced.replaced, { commitments: 1, review: 0 });
+  assert.equal(replaced.created, 1);
+  assert.equal((await s.agent("commitments_list", {})).body.commitments.find((c) => c.source.ref === "ses-x@3").direction, "i_owe");
+  assert.equal((await s.agent("commitments_list", {})).body.commitments.some((c) => c.id === wrong.id), true, "other sources are untouched");
+  assert.equal((await s.call("POST", "/api/commitments/ingest", { session_id: "ses-x", replace: true })).body.replaced.commitments, 1);
+});
+
 // ------------------------------------------------------------------ add / update
 
 test("commitment_add resolves a person, turns words into a day and keeps the quote", async () => {
@@ -350,7 +453,7 @@ test("locateQuote only accepts what the text literally says", () => {
 
 test("the digest says who is owed what, in words", async () => {
   const digest = (await s.agent("commitments_digest", { days: 7 })).body;
-  assert.ok(digest.overdue_count >= 1);
+  assert.ok(digest.overdue_count >= 1, JSON.stringify(digest).slice(0, 600));
   assert.ok(digest.lines.includes(`Marta Lozano te debe: Pagarme la cena (venció el ${addDays(today(), -4)}, hace 4 días)`), digest.lines.join("\n"));
   assert.ok(digest.lines.some((l) => l.startsWith("Le debes a Marta Lozano: Mandarle las fotos de la obra (para mañana)")));
   assert.match(digest.summary, /compromisos? vencidos?/);

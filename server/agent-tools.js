@@ -281,10 +281,14 @@ export const TOOLS = [
 
   tool(
     "commitments_ingest_minutes",
-    "Turn the minutes of a recorded meeting into commitments (acta, reunión, Funes).\nAsks Funes, through the hub, for the minutes of a session (it writes them if needed, which can take minutes) and records its action items: what the user said they would do is i_owe, what others said is owed_to_me. Names that do not resolve go to commitments_review. Safe to repeat. status is ingested, or no_model, hub_down, tool_missing, unknown_session, funes_error with a detail. Also happens by itself when Funes announces new minutes.\nSinónimos: compromisos de la reunión, qué quedó pendiente en la reunión, acta de la reunión, tareas de la reunión",
-    z.object({ session_id: z.string().trim().min(1).max(100), regenerate: z.boolean().default(false) }),
+    "Turn the minutes of a recorded meeting into commitments (acta, reunión, Funes).\nAsks Funes, through the hub, for the minutes of a session (it writes them if needed, which can take minutes) and records its action items: what the user said they would do is i_owe, what others said is owed_to_me. Anything not certain (no owner named, a name that matches nobody or several people, no person for a promise of mine) goes to commitments_review, never straight into the list. Safe to repeat; with replace=true it first drops what an earlier reading of this meeting made and the user has not touched (open, never edited), then reads the minutes again: use it to redo a meeting after a fix. status is ingested, or no_model, hub_down, tool_missing, unknown_session, funes_error with a detail. Also happens by itself when Funes announces new minutes.\nSinónimos: compromisos de la reunión, qué quedó pendiente en la reunión, acta de la reunión, tareas de la reunión",
+    z.object({
+      session_id: z.string().trim().min(1).max(100),
+      regenerate: z.boolean().default(false).describe("Ask Funes to write the minutes again"),
+      replace: z.boolean().default(false).describe("First drop what an earlier reading of this meeting made and the user has not touched"),
+    }),
     { openWorldHint: true, timeoutMs: 16 * 60 * 1000 },
-    ({ session_id, regenerate }) => commitments.ingestFromFunes(session_id, { regenerate }),
+    ({ session_id, regenerate, replace }) => commitments.ingestFromFunes(session_id, { regenerate, replace }),
   ),
 
   tool(

@@ -3,11 +3,18 @@ import { api } from "../api.js";
 import { Field, useAction } from "./ui.jsx";
 import { commitmentDue, DIRECTION_LABELS, SOURCE_LABELS } from "../format.js";
 
+let peopleCache = null;
+const loadPeople = () => (peopleCache ||= api.people.list({}).catch(() => { peopleCache = null; return []; }));
+
 /** One promise: text, who, when, where it came from, and the three things you do with it. */
 export function CommitmentItem({ c, showPerson = true, onChange, notify, busy }) {
   const [run, working] = useAction(notify);
   const [moving, setMoving] = useState(false);
   const [day, setDay] = useState(c.due || "");
+  const [direction, setDirection] = useState(c.direction);
+  const [personId, setPersonId] = useState(c.person_id || "");
+  const [everyone, setEveryone] = useState([]);
+  useEffect(() => { if (moving) loadPeople().then(setEveryone); }, [moving]);
   const open = c.status === "open";
   const apply = async (patch, ok) => { if (await run(() => api.commitments.update(c.id, patch), ok)) { setMoving(false); onChange(); } };
   const remove = async () => { if (await run(() => api.commitments.remove(c.id), "Compromiso borrado.")) onChange(); };
@@ -30,9 +37,29 @@ export function CommitmentItem({ c, showPerson = true, onChange, notify, busy })
           </div>
           {c.source.quote && <details className="mt-1"><summary className="help cursor-pointer">Lo que se dijo</summary><blockquote className="help mt-1 border-l-2 pl-2" style={{ borderColor: "var(--line)" }}>«{c.source.quote}»</blockquote></details>}
           {moving && (
-            <form className="mt-2 flex flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); if (day) apply({ due: day }, "Fecha cambiada."); }}>
-              <input type="date" className="field field-sm w-[150px]" value={day} onChange={(e) => setDay(e.target.value)} aria-label="Nueva fecha" required />
-              <button type="submit" className="btn btn-sm" disabled={disabled}>Guardar fecha</button>
+            <form
+              className="mt-2 flex flex-wrap items-center gap-2"
+              aria-label="Editar compromiso"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const patch = {};
+                if (direction !== c.direction) patch.direction = direction;
+                if (personId !== (c.person_id || "")) patch.person_id = personId || null;
+                if (day && day !== (c.due || "")) patch.due = day;
+                if (!Object.keys(patch).length) return setMoving(false);
+                apply(patch, "Compromiso actualizado.");
+              }}
+            >
+              <select className="field field-sm w-[130px]" value={direction} onChange={(e) => setDirection(e.target.value)} aria-label="Quién debe">
+                <option value="i_owe">Yo debo</option>
+                <option value="owed_to_me">Me deben</option>
+              </select>
+              <select className="field field-sm w-[170px]" value={personId} onChange={(e) => setPersonId(e.target.value)} aria-label="Persona">
+                <option value="">{c.person_id ? "Sin persona" : c.person_name ? `Sin enlazar («${c.person_name}»)` : "Sin persona"}</option>
+                {everyone.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              <input type="date" className="field field-sm w-[150px]" value={day} onChange={(e) => setDay(e.target.value)} aria-label="Fecha" />
+              <button type="submit" className="btn btn-sm" disabled={disabled}>Guardar</button>
               <button type="button" className="btn-link" onClick={() => setMoving(false)}>Cancelar</button>
             </form>
           )}
@@ -41,7 +68,7 @@ export function CommitmentItem({ c, showPerson = true, onChange, notify, busy })
         <div className="flex shrink-0 flex-wrap gap-x-3 gap-y-1 sm:justify-end">
           {open ? (
             <>
-              <button type="button" className="btn-link" onClick={() => setMoving((v) => !v)} aria-expanded={moving}>Cambiar fecha</button>
+              <button type="button" className="btn-link" onClick={() => setMoving((v) => !v)} aria-expanded={moving}>Editar</button>
               <button type="button" className="btn-link" disabled={disabled} onClick={() => apply({ status: "dropped" }, "Compromiso descartado.")}>Descartar</button>
             </>
           ) : (
@@ -134,7 +161,8 @@ const REASONS = {
   ambiguous: (p) => `El nombre «${p.person_name_raw}» coincide con varias personas.`,
   unknown: (p) => `«${p.person_name_raw}» no está en la agenda.`,
   third_party: (p) => `Lo promete «${p.person_name_raw}» a «${p.counterpart}»: ninguno eres tú.`,
-  unassigned: () => "El acta no dice quién se compromete.",
+  unassigned: (p) => (p.person_name_raw ? `El acta no dice quién se compromete; la otra persona parece ser «${p.person_name_raw}». Elige quién debe.` : "El acta no dice quién se compromete."),
+  no_person: () => "Es una promesa tuya, pero el acta no dice a quién.",
   proposed: () => "Propuesto por el modelo a partir de un texto que pegaste: confírmalo.",
 };
 

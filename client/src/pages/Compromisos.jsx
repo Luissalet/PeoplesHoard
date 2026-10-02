@@ -16,15 +16,16 @@ function IngestPanel({ onDone, notify }) {
   const [sessionId, setSessionId] = useState("");
   const [text, setText] = useState("");
   const [hint, setHint] = useState("");
+  const [replace, setReplace] = useState(false);
   const [run, busy] = useAction(notify);
   const [outcome, setOutcome] = useState(null);
 
   const ingest = async (e) => {
     e.preventDefault();
-    const out = await run(() => api.commitments.ingest(sessionId.trim(), false), null);
+    const out = await run(() => api.commitments.ingest(sessionId.trim(), false, replace), null);
     if (!out) return;
     const words = {
-      ingested: `Acta leída: ${out.created} compromisos nuevos y ${out.queued} para revisar${out.duplicates ? `, ${out.duplicates} ya conocidos` : ""}.`,
+      ingested: `Acta leída: ${out.created} compromisos nuevos y ${out.queued} para revisar${out.duplicates ? `, ${out.duplicates} ya conocidos` : ""}${out.replaced ? ` (se quitaron ${out.replaced.commitments} compromisos y ${out.replaced.review} propuestas sin tocar para releerlos)` : ""}.`,
       no_model: "Funes no tiene ningún modelo cargado para escribir el acta. Carga uno y vuelve a intentarlo.",
       hub_down: "No se puede contactar con el hub de Hoard Link.",
       tool_missing: out.detail,
@@ -56,6 +57,10 @@ function IngestPanel({ onDone, notify }) {
           <h3 className="text-[13px] font-semibold">Desde una reunión de Funes</h3>
           <p className="help">Las actas nuevas se leen solas. Para una anterior, pega el identificador de la sesión (aparece en la dirección de la sesión en Funes).</p>
           <Field label="Sesión de Funes"><input className="field field-sm" value={sessionId} onChange={(e) => setSessionId(e.target.value)} placeholder="Identificador de la sesión" required /></Field>
+          <label className="flex items-start gap-2 text-[13px]">
+            <input type="checkbox" className="mt-[3px]" checked={replace} onChange={(e) => setReplace(e.target.checked)} />
+            <span>Releer y sustituir lo que no hayas tocado <span className="help block">Quita los compromisos y propuestas de esa reunión que sigan sin editar y los vuelve a leer; lo cumplido, descartado o editado se queda.</span></span>
+          </label>
           <button type="submit" className="btn btn-sm justify-self-start" disabled={busy}>Leer el acta</button>
         </form>
         <form onSubmit={extract} className="grid content-start gap-2" aria-label="Desde un texto">

@@ -124,7 +124,7 @@ export function installRoutes(app, { version, dataDirConfigured }) {
   app.post("/api/commitments/sync", asyncRoute(async (req, res) => res.json({ result: await sweep(), sync: syncStatus() })));
   app.post("/api/commitments/ingest", asyncRoute(async (req, res) => {
     const body = req.body || {};
-    const out = await commitments.ingestFromFunes(body.session_id, { regenerate: !!body.regenerate });
+    const out = await commitments.ingestFromFunes(body.session_id, { regenerate: !!body.regenerate, replace: !!body.replace });
     res.json({ ...out, pending_review: commitments.pendingReviewCount() });
   }));
   app.post("/api/commitments/extract", asyncRoute(async (req, res) => {

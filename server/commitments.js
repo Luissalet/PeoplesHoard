@@ -27,8 +27,10 @@ const fail = (message, opts = {}) => {
 };
 
 const ME = new Set(["yo", "i", "me", "myself", "mi"]);
-const OTHERS = new Set(["otros", "otro", "otra", "others", "other", "ellos", "alguien"]);
+const OTHERS = new Set(["otros", "otro", "otra", "others", "other", "ellos", "alguien", "null", "none", "unknown", "desconocido"]);
 const isMe = (name) => ME.has(fold(name));
+const LABEL = /^(?:s\d+|speaker\s*\d*|hablante\s*\d*|spk\s*\d*)$/i;
+const isLabel = (name) => LABEL.test(String(name || "").trim());
 const isAnonymous = (name) => !String(name || "").trim() || OTHERS.has(fold(name));
 
 export const normText = (text) => fold(text).replace(/[^\p{L}\p{N}]+/gu, " ").trim();
@@ -314,6 +316,25 @@ export function resolveReview(id, body = {}, { today = todayLocal() } = {}) {
 
 // ---------------------------------------------------- ingest from minutes --
 
+/**
+ * Forget what an earlier reading of a meeting produced and the user has not touched, so the minutes can be read again
+ * (after a fix, or a wrong direction): open commitments from that session never edited nor chosen by the user in the review queue, proposals still waiting, and
+ * settled proposals whose commitment is gone. What the user did decide stays: done, dropped or edited commitments, and
+ * proposals discarded on purpose.
+ */
+export function clearUntouched(sessionId) {
+  const like = `${sessionId.replace(/[\\%_]/g, "\\$&")}@%`;
+  const commitments = db().prepare(
+    `DELETE FROM commitments WHERE source_kind = 'funes' AND source_ref LIKE ? ESCAPE '\\' AND status = 'open'
+     AND done_at IS NULL AND updated_at = created_at
+     AND id NOT IN (SELECT commitment_id FROM commitment_review WHERE commitment_id IS NOT NULL)`).run(like).changes; // a proposal the user settled is a decision of theirs
+  const review = db().prepare(
+    `DELETE FROM commitment_review WHERE kind = 'minutes' AND dedupe_key LIKE ? ESCAPE '\\'
+     AND (status = 'pending' OR (status = 'resolved' AND (commitment_id IS NULL OR commitment_id NOT IN (SELECT id FROM commitments))))`)
+    .run(`funes:${like}`).changes;
+  return { commitments: Number(commitments), review: Number(review) };
+}
+
 /** "Reunión: <title>" on the person's timeline, once per meeting. */
 function logMeeting(personId, meeting) {
   if (!meeting || !meeting.title) return false;
@@ -334,11 +355,12 @@ const dueOf = (item) => (item.due_date && /^\d{4}-\d{2}-\d{2}$/.test(item.due_da
  * to the review queue. Safe to run again: the same session and text never makes a second
  * commitment or review item.
  */
-export function ingestMinutes(minutes, { today = todayLocal() } = {}) {
+export function ingestMinutes(minutes, { today = todayLocal(), replace = false } = {}) {
   const sessionId = String(minutes?.session_id || "");
   if (!sessionId) fail("Las actas no traen session_id.");
   const meeting = { title: String(minutes.title || "").trim(), at: minutes.started_at || null, session_id: sessionId };
   const result = { session_id: sessionId, title: meeting.title, items: 0, created: 0, queued: 0, duplicates: 0, interactions: 0, commitments: [], review: [] };
+  if (replace) result.replaced = clearUntouched(sessionId);
   const met = new Set();
   for (const item of Array.isArray(minutes.action_items) ? minutes.action_items : []) {
     const text = String(item.action || "").trim();
@@ -352,37 +374,44 @@ export function ingestMinutes(minutes, { today = todayLocal() } = {}) {
     const counterpart = String(item.counterpart || "").trim();
     const base = { text, due: dueOf(item), due_text: String(item.due_text || ""), source, meeting };
 
+    // Nothing goes straight into the list unless both the direction and the person are certain:
+    //   owner "yo"      -> i_owe, and the counterpart must resolve to one person;
+    //   owner a person  -> owed_to_me, resolved by name (a promise between two third parties waits);
+    //   anything else (no owner, "otros", a speaker label, an unknown or ambiguous name) waits for the user.
     let direction = null;
     let nameRaw = "";
     let reason = null;
+    let named;
     if (isMe(owner)) {
       direction = "i_owe";
-      nameRaw = isAnonymous(counterpart) || isMe(counterpart) ? "" : counterpart;
-    } else if (owner && !isAnonymous(owner)) {
+      nameRaw = isAnonymous(counterpart) || isMe(counterpart) || isLabel(counterpart) ? "" : counterpart;
+      named = resolveName(nameRaw);
+      if (!nameRaw) reason = "no_person"; // a promise I made, but the minutes do not say to whom
+    } else if (owner && !isAnonymous(owner) && !isLabel(owner)) {
       direction = "owed_to_me";
       nameRaw = owner;
-      if (!isAnonymous(counterpart) && !isMe(counterpart)) reason = "third_party"; // between two other people
-    } else if (isAnonymous(owner) && owner) {
-      direction = "owed_to_me"; // "otros": someone on the other side, not named
+      named = resolveName(nameRaw);
+      if (!isAnonymous(counterpart) && !isMe(counterpart) && !isLabel(counterpart)) reason = "third_party"; // between two other people
     } else {
-      reason = "unassigned"; // the minutes could not say who
+      // The minutes could not say who commits. The counterpart, if it is a person, is offered as the likely one.
+      reason = "unassigned";
+      nameRaw = isAnonymous(counterpart) || isMe(counterpart) || isLabel(counterpart) ? "" : counterpart;
+      named = resolveName(nameRaw);
     }
-
-    const named = resolveName(nameRaw);
-    if (reason || named.state === "ambiguous" || named.state === "unknown") {
+    if (reason || named.state === "ambiguous" || named.state === "unknown" || named.state === "none") {
       const review = queueReview({
         kind: "minutes",
-        reason: reason || named.state,
+        reason: reason || (named.state === "none" ? "no_person" : named.state),
         proposal: { ...base, direction, person_name_raw: nameRaw, counterpart },
-        candidates: named.candidates,
+        candidates: named.state === "person" ? [named.person] : named.candidates,
         dedupe: key,
       });
       if (review) { result.queued++; result.review.push(review.id); } else result.duplicates++;
       continue;
     }
-    const personId = named.state === "person" ? named.person.id : null;
+    const personId = named.person.id;
     const added = addCommitment({
-      direction, person_id: personId, person_name_raw: personId ? "" : nameRaw, text, due: base.due, due_text: base.due_text,
+      direction, person_id: personId, person_name_raw: "", text, due: base.due, due_text: base.due_text,
       source_kind: "funes", source_ref: ref, source_quote: source.quote,
     }, { dedupe: key, today, resolve: false }); // Funes resolved the day against the meeting date; "el viernes" stays words if it could not
     if (!added.created) { result.duplicates++; continue; }
@@ -397,7 +426,7 @@ export function ingestMinutes(minutes, { today = todayLocal() } = {}) {
 }
 
 /** Ask Funes (through the hub) for the minutes of a session and ingest them. Never throws for "the other side is down". */
-export async function ingestFromFunes(sessionId, { regenerate = false, today = todayLocal(), timeoutMs = 15 * 60 * 1000 } = {}) {
+export async function ingestFromFunes(sessionId, { regenerate = false, replace = false, today = todayLocal(), timeoutMs = 15 * 60 * 1000 } = {}) {
   const id = String(sessionId || "").trim();
   if (!id) fail("Falta session_id.");
   const response = await family.call("funes", "scribe_minutes", { session_id: id, regenerate: !!regenerate }, { timeoutMs });
@@ -413,7 +442,7 @@ export async function ingestFromFunes(sessionId, { regenerate = false, today = t
   const minutes = response.result;
   if (!minutes || typeof minutes !== "object") return { status: "funes_error", detail: "Funes no devolvió un acta." };
   if (minutes.status !== "ready") return { status: minutes.status || "funes_error", detail: minutes.detail || "" };
-  return { status: "ingested", cached: !!minutes.cached, ...ingestMinutes(minutes.minutes, { today }) };
+  return { status: "ingested", cached: !!minutes.cached, ...ingestMinutes(minutes.minutes, { today, replace }) };
 }
 
 // ------------------------------------------------------ extract from text --
@@ -540,7 +569,7 @@ export function commitmentsDigest({ days = 7, today = todayLocal() } = {}) {
     groups.get(key)[c.direction].push(c);
   }
   const ordered = [...groups.values()].sort((a, b) => {
-    const first = (g) => Math.min(...[...g.i_owe, ...g.owed_to_me].map((c) => c.due || "9999"));
+    const first = (g) => [...g.i_owe, ...g.owed_to_me].map((c) => c.due || "9999-12-31").sort()[0];
     return first(a).localeCompare(first(b));
   });
   const overdue = relevant.filter((c) => c.overdue);
