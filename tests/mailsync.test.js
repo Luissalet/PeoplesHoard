@@ -68,7 +68,7 @@ test("a pass registers the interest, reads from the watermark and keeps date, ch
   assert.equal(people.getPerson(pedro.id).last_contact_at, "2026-09-25T18:30:00.000Z");
   const dump = JSON.stringify(db().prepare("SELECT * FROM interactions").all()) + JSON.stringify(db().prepare("SELECT * FROM settings").all());
   assert.ok(!dump.includes("SECRET BODY"), "the body is never read into the book");
-  assert.ok(hub.state.mailRequests.every((r) => !r.includes("full=1")), "the bodies are not even asked for");
+  assert.ok(hub.state.mailRequests.every((r) => r.includes("fields=headers")), "the list and category headers are asked for, so bulk mail can be told apart");
   assert.equal(hub.state.claims.length, 0, "the mail is not claimed: it is not this app's");
   assert.equal(getSetting(KEYS.since), hub.state.mail.at(-1).id);
 });
@@ -99,6 +99,16 @@ test("a person gets one line per day however many mails arrive, and re-reading c
   const again = await syncMail();
   assert.equal(again.logged, 0);
   assert.equal(mailLines(pedro.id).length, before + 1);
+});
+
+test("bulk mail from a person's address (a mailing list, Gmail promotions) is not a contact", async () => {
+  mail("pedro@example.test", "Oferta de la semana", T("2026-10-02T10:00:00Z"), { headers: { list_unsubscribe: "<mailto:baja@example.test>" } });
+  mail("marta.lozano@example.test", "Novedades", T("2026-10-02T10:05:00Z"), { headers: { gmail_category: "promotions" } });
+  const before = db().prepare("SELECT COUNT(*) AS n FROM interactions").get().n;
+  const out = await syncMail();
+  assert.equal(out.logged, 0);
+  assert.equal(out.bulk, 2);
+  assert.equal(db().prepare("SELECT COUNT(*) AS n FROM interactions").get().n, before);
 });
 
 test("my own mail, an archived person and an address nobody has are skipped", async () => {
