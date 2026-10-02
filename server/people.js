@@ -320,7 +320,10 @@ export function mergePeople(keepId, dropId) {
   if (!keep || !drop) throw Object.assign(new Error("Persona no encontrada."), { status: 404 });
   return transaction(() => {
     db().prepare("UPDATE facts SET person_id = ? WHERE person_id = ?").run(keepId, dropId);
-    db().prepare("UPDATE interactions SET person_id = ? WHERE person_id = ?").run(keepId, dropId);
+    // an interaction that came from the same source on both people (a meeting, a mail) stays once
+    db().prepare("UPDATE OR IGNORE interactions SET person_id = ? WHERE person_id = ?").run(keepId, dropId);
+    db().prepare("DELETE FROM interactions WHERE person_id = ?").run(dropId);
+    db().prepare("UPDATE gift_ideas SET person_id = ? WHERE person_id = ?").run(keepId, dropId);
     db().prepare("UPDATE reminders SET person_id = ? WHERE person_id = ?").run(keepId, dropId);
     db().prepare("UPDATE commitments SET person_id = ? WHERE person_id = ?").run(keepId, dropId);
     const dropAliases = db().prepare("SELECT * FROM aliases WHERE person_id = ?").all(dropId);

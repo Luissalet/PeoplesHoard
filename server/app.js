@@ -10,6 +10,7 @@ import { installRoutes } from "./routes.js";
 import { installAgentRoutes, writeToken } from "./agent-routes.js";
 import * as family from "./hoard-link.js";
 import { createGuard } from "./guard.js";
+import { agendaItems } from "./agenda.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -34,6 +35,8 @@ export function createApp({ dataDir, dataDirConfigured = false, serveStatic = tr
   app.use(express.json({ limit: "10mb" }));
   installRoutes(app, { version, dataDirConfigured });
   installAgentRoutes(app, { token });
+  // The family agenda (birthdays, follow-ups, commitments with a day): the hub asks with this app's own token.
+  family.installAgenda(app, (from, to, sphere) => agendaItems(from, to, sphere));
   app.all(/^\/api(\/.*)?$/, (req, res) => res.status(404).json({ error: "Ruta no encontrada." }));
 
   const DIST = path.join(ROOT, "dist");

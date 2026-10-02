@@ -2,6 +2,8 @@
 import { createApp, resolveDataDir } from "./app.js";
 import { findAvailablePort, validPort } from "./port.js";
 import { startPoller } from "./commitments-poller.js";
+import { startBackground } from "./background.js";
+import { setPublicUrl } from "./agenda.js";
 
 const PREFERRED_PORT = validPort(process.env.PEOPLE_PORT || process.env.PORT, 5182);
 const PORT = process.env.PORT_STRICT === "1" ? PREFERRED_PORT : await findAvailablePort(PREFERRED_PORT);
@@ -13,6 +15,10 @@ const server = app.listen(PORT, "127.0.0.1", () => {
   console.log(`People's Hoard en http://127.0.0.1:${PORT} · datos en ${dataDir}`);
   // Meeting minutes from Funes arrive by themselves while the hub answers (PEOPLE_COMMITMENTS_AUTO=0 turns it off).
   if (startPoller()) console.log("Compromisos: leyendo las actas de Funes desde el hub cada 60 s.");
+  setPublicUrl(`http://127.0.0.1:${PORT}`);
+  // Last contact from the hub's mail every 30 min, and the gift ideas before a birthday (PEOPLE_MAIL_AUTO=0: no mail pass).
+  const background = startBackground();
+  if (background.mail) console.log("Correo: leyendo del hub el último contacto de las personas con correo, cada 30 min.");
 });
 server.on("error", (error) => {
   console.error(`No se pudo iniciar People's Hoard: ${error.message}`);

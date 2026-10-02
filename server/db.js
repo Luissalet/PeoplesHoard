@@ -118,6 +118,25 @@ export const MIGRATIONS = [
   CREATE INDEX commitment_review_status ON commitment_review(status, created_at);
   CREATE UNIQUE INDEX commitment_review_dedupe ON commitment_review(dedupe_key) WHERE dedupe_key IS NOT NULL;
   `,
+  // 3: an interaction may remember what it came from (a meeting's minutes, a mail) so the same source never lands
+  // twice on a timeline, and gift ideas per person (an idea may be watched by Tantalus: watcher_id).
+  `
+  ALTER TABLE interactions ADD COLUMN ref TEXT NULL;
+  CREATE UNIQUE INDEX interactions_ref ON interactions(person_id, ref) WHERE ref IS NOT NULL;
+
+  CREATE TABLE gift_ideas (
+    id TEXT PRIMARY KEY,
+    person_id TEXT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+    idea TEXT NOT NULL,
+    url TEXT NOT NULL DEFAULT '',
+    budget REAL NULL,
+    status TEXT NOT NULL DEFAULT 'idea' CHECK (status IN ('idea', 'bought', 'dropped')),
+    watcher_id TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE INDEX gift_ideas_person ON gift_ideas(person_id, status);
+  `,
 ];
 
 let connection = null;

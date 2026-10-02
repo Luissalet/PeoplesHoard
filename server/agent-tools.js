@@ -11,6 +11,9 @@ import { upcomingReport } from "./upcoming.js";
 import { daysSince } from "./dates.js";
 import { personBrief } from "./brief.js";
 import * as commitments from "./commitments.js";
+import { peopleFromMinutes } from "./meetings.js";
+import { runMailSync } from "./mailsync.js";
+import * as gifts from "./gifts.js";
 
 export const AGENT_INSTRUCTIONS = `People's Hoard is the user's private address book: who people are, what to remember about them, and when they last spoke.
 Resolve ambiguous names by asking the user which person they mean — never guess when find_people or get_person returns several candidates; two people can share a first name.
@@ -20,7 +23,9 @@ Birthdays without a known year are fine: store them as --MM-DD (month and day on
 Call find_people or get_person before writing, so a fact, alias or interaction lands on the right person.
 Who the person is goes in "summary" ("vecina del cuarto", "compañero del máster", "amigo de la infancia") and their group in "circles" (familia, amigos, trabajo, vecinos, ...); tastes, children, jobs and similar go in facts. When the user describes a new person, fill summary and circles in the same upsert_person call.
 merge_people and delete_person are irreversible: confirm with the user before calling them.
-Commitments are promises: "i_owe" is what the user must do for someone, "owed_to_me" is what someone owes the user. Record one with commitment_add only when the user said it (or confirms it), with the person and, if given, the day; never invent a deadline: pass due_text in the user's words ("el viernes") and let the server turn it into a date. Before saying what is pending, call commitments_digest or commitments_list; when the user asks how to catch up with someone, prepare_person_chat already lists the open commitments both ways. Meeting minutes from Funes come in with commitments_ingest_minutes (give the session id) and text the user pastes goes through commitments_extract_text: both only propose, and commitments_review shows what waits for a decision (a name that matches nobody, several people with the same name): ask the user before resolving it.`;
+Commitments are promises: "i_owe" is what the user must do for someone, "owed_to_me" is what someone owes the user. Record one with commitment_add only when the user said it (or confirms it), with the person and, if given, the day; never invent a deadline: pass due_text in the user's words ("el viernes") and let the server turn it into a date. Before saying what is pending, call commitments_digest or commitments_list; when the user asks how to catch up with someone, prepare_person_chat already lists the open commitments both ways. Meeting minutes from Funes come in with commitments_ingest_minutes (give the session id) and text the user pastes goes through commitments_extract_text: both only propose, and commitments_review shows what waits for a decision (a name that matches nobody, several people with the same name): ask the user before resolving it.
+people_from_minutes puts "Reunión: <title>" on the timeline of each attendee of a meeting who is in the book (it takes the id of the minutes, which Funes announces); it never creates people, and attendees it cannot match are returned as unmatched or ambiguous. contacts_sync_mail reads from the hub the mail sent by the people in the book and keeps only the date, the channel and the subject as the last contact; it never reads or stores a body.
+Gift ideas: save one with gift_idea_add when the user mentions something a person would like (or they say what to give); list them with gift_ideas; gift_watch asks Tantalus to watch the idea's price or stock. Some days before a birthday the saved ideas reach the daily digest by themselves.`;
 
 const fail = (message, opts = {}) => {
   throw Object.assign(new Error(message), { status: 400, ...opts });
@@ -305,6 +310,62 @@ export const TOOLS = [
     z.object({ days: z.number().int().min(1).max(365).default(7) }),
     RO,
     ({ days }) => commitments.commitmentsDigest({ days }),
+  ),
+
+  tool(
+    "people_from_minutes",
+    "Log a meeting on the timeline of each attendee in the book (acta, reunión, asistentes).\nTakes the id of a meeting's minutes (Funes announces it), asks Funes through the hub who was there (minutes_get) and writes \"Reunión: <title>\" on that day for every attendee matched by name, alias or e-mail. Nothing is created: attendees that match nobody come back as unmatched, several people as ambiguous. Idempotent per meeting and person. status is ok, or hub_down, tool_missing, unknown_minutes, no_model, not_ready, funes_error. Happens by itself when Funes announces new minutes.\nSinónimos: con quién me reuní, apunta la reunión a los asistentes, quién estuvo en la reunión, reunión con, asistentes del acta",
+    z.object({
+      minutes_id: z.string().trim().min(1).max(100).describe("Id of the minutes (the session id Funes announces in funes.minutes.ready)"),
+      generate: z.boolean().default(false).describe("Ask Funes to write the minutes when none are stored (can take minutes)"),
+    }),
+    { idempotentHint: true, openWorldHint: true, timeoutMs: 16 * 60 * 1000 },
+    ({ minutes_id, generate }) => peopleFromMinutes(minutes_id, { generate }),
+  ),
+
+  tool(
+    "contacts_sync_mail",
+    "Update each person's last contact from the mail the hub has from them (correo, último contacto).\nTells the hub which addresses matter (the e-mails of the people in the book), reads the mail sent by them since last time and keeps, per person, the date, the channel (email) and the subject as a one-line note; never the body, and it claims nothing. Runs by itself every 30 minutes while the app is up, only when the hub's mail gateway is on. status is ok (read, logged, skipped), or off, mail_unavailable, no_addresses, register_failed, read_failed.\nSinónimos: última vez que me escribió, actualiza los contactos desde el correo, sincronizar correo, cuándo hablamos por correo",
+    z.object({ force: z.boolean().default(false).describe("Run even if mail sync is switched off in the settings") }),
+    { idempotentHint: true, openWorldHint: true, timeoutMs: 4 * 60 * 1000 },
+    ({ force }) => runMailSync({ force }),
+  ),
+
+  tool(
+    "gift_idea_add",
+    "Save a gift idea for a person (regalo, idea de regalo).\nSave a gift idea for a person with an optional page (url) and budget. The same idea for the same person is not saved twice. Some days before the person's birthday the saved ideas reach the daily digest; gift_watch asks Tantalus to watch its price.\nSinónimos: idea de regalo para, le regalaría, regalo de cumpleaños, qué regalarle, apunta un regalo",
+    z.object({
+      person: personRef,
+      idea: z.string().trim().min(1).max(300).describe("What to give, in a few words"),
+      url: z.string().trim().max(2000).optional().describe("A page where it can be bought"),
+      budget: z.number().nonnegative().optional().describe("The most the user wants to pay"),
+    }),
+    { idempotentHint: true },
+    ({ person: ref, idea, url, budget }) => gifts.addGift(resolveOrFail(ref).id, { idea, url: url || "", budget: budget ?? null }),
+  ),
+
+  tool(
+    "gift_ideas",
+    "List saved gift ideas, for one person or everyone (ideas de regalo).\nGift ideas still to give (status idea, the default), bought, dropped or all, newest first, each with its page, budget and whether Tantalus is watching it.\nSinónimos: qué le puedo regalar, ideas de regalo, lista de regalos, regalos pendientes, qué le regalo a",
+    z.object({
+      person: z.string().trim().max(200).optional().describe("Person id or name; omit for everyone"),
+      status: z.enum([...gifts.GIFT_STATUSES, "all"]).default("idea"),
+      limit: z.number().int().min(1).max(500).default(100),
+    }),
+    RO,
+    ({ person, status, limit }) => ({ gifts: gifts.listGifts({ person_id: person ? resolveOrFail(person).id : undefined, status, limit }) }),
+  ),
+
+  tool(
+    "gift_watch",
+    "Ask Tantalus to watch a gift idea's price or stock (vigilar un regalo).\nCreates a watcher in Tantalus through the hub from the idea's text, page and budget (the price limit) and keeps its id; asking again answers the same watcher. status is ok, or hub_down, tool_missing, tantalus_unavailable, tantalus_error.\nSinónimos: vigila ese regalo, avísame si baja de precio, controla el precio del regalo, vigilar la idea",
+    z.object({ idea_id: z.string().trim().min(1).max(100) }),
+    { idempotentHint: true, openWorldHint: true, timeoutMs: 90000 },
+    async ({ idea_id }) => {
+      const out = await gifts.watchGift(idea_id);
+      if (!out) fail("Esa idea de regalo no existe.", { status: 404 });
+      return out;
+    },
   ),
 
   tool(

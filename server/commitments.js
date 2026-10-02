@@ -15,7 +15,7 @@ import { fold } from "./text.js";
 import { today as todayLocal, addDays, localDate } from "./dates.js";
 import { resolveDue } from "./due.js";
 import { getPerson, createPerson, resolvePersonRef } from "./people.js";
-import { createInteraction } from "./interactions.js";
+import { logMeetingOnce } from "./interactions.js";
 import * as family from "./hoard-link.js";
 
 export const DIRECTIONS = ["i_owe", "owed_to_me"];
@@ -121,11 +121,23 @@ export function listCommitments({ person, direction, status = "open", overdue, d
 
 // --------------------------------------------------------------- writing --
 
+const commitmentRef = (id) => `hoard://people/commitment/${id}`;
+
+/** A commitment the user owns (`i_owe`), still open, with a day: the kind that becomes a deadline elsewhere. */
+export const isOwnDeadline = (c) => !!c && c.direction === "i_owe" && c.status === "open" && !!c.due;
+
 function emitEvent(type, c) {
-  family.emit(type, {
+  const base = {
     id: c.id, direction: c.direction, person_id: c.person_id, person: c.person_name,
     text: c.text.slice(0, 120), due: c.due, source: c.source.kind,
-  });
+  };
+  if (type !== "people.commitment.added") return family.emit(type, base);
+  // `people.commitment.added` is the one the hub turns into a deadline in the paperwork app, so it is only sent for what
+  // the user owes and has a day for, with the keys that rule reads: `title`, `due`, `ref` and `person`. Any other new
+  // commitment (someone owes me, or no day yet) is announced as `people.commitment.noted`, with the same data as before.
+  if (!isOwnDeadline(c)) return family.emit("people.commitment.noted", base);
+  const who = c.person_name ? ` (${c.person_name})` : "";
+  return family.emit("people.commitment.added", { ...base, title: `${c.text.slice(0, 160)}${who}`, ref: commitmentRef(c.id) });
 }
 
 function findByKey(key) {
@@ -178,6 +190,8 @@ export function updateCommitment(id, patch, { today = todayLocal(), emit = true 
     data.due !== undefined || (data.due_text && data.due_text !== current.due_text) ? null : current.last_nudged_at, id);
   const commitment = getCommitment(id, { today });
   if (emit && closing && data.status === "done") emitEvent("people.commitment.done", commitment);
+  // a commitment that only now is mine with a day (the review queue, a day added later) becomes a deadline then
+  if (emit && !closing && isOwnDeadline(commitment) && !isOwnDeadline(present(current, { today }))) emitEvent("people.commitment.added", commitment);
   return commitment;
 }
 
@@ -335,14 +349,11 @@ export function clearUntouched(sessionId) {
   return { commitments: Number(commitments), review: Number(review) };
 }
 
-/** "Reunión: <title>" on the person's timeline, once per meeting. */
+/** "Reunión: <title>" on the person's timeline, once per meeting (see interactions.logMeetingOnce). */
 function logMeeting(personId, meeting) {
   if (!meeting || !meeting.title) return false;
-  const summary = `Reunión: ${meeting.title}`.slice(0, 2000);
-  const at = meeting.at && !Number.isNaN(Date.parse(meeting.at)) ? new Date(meeting.at).toISOString() : new Date().toISOString();
-  if (db().prepare("SELECT 1 FROM interactions WHERE person_id = ? AND summary = ? AND at = ?").get(personId, summary, at)) return false;
-  createInteraction(personId, { at, channel: "meet", summary, source: "agent" });
-  return true;
+  const ref = meeting.session_id ? `hoard://funes/minutes/${meeting.session_id}` : null;
+  return !!logMeetingOnce(personId, { title: meeting.title, at: meeting.at, ref });
 }
 
 const dueOf = (item) => (item.due_date && /^\d{4}-\d{2}-\d{2}$/.test(item.due_date) ? item.due_date : null);

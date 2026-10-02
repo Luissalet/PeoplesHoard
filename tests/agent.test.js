@@ -10,6 +10,7 @@ const EXPECTED = [
   "add_reminder", "complete_reminder", "upcoming", "list_people",
   "commitments_list", "commitment_add", "commitment_update", "commitment_done", "commitment_drop", "commitments_review",
   "commitments_ingest_minutes", "commitments_extract_text", "commitments_digest",
+  "people_from_minutes", "contacts_sync_mail", "gift_idea_add", "gift_ideas", "gift_watch",
   "merge_people", "delete_person",
 ];
 
