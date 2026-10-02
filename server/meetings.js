@@ -1,7 +1,7 @@
 // A meeting from Funes onto the contact book: who was there (by name, alias or e-mail) gets "Reunión: <title>" on that
 // day's line of their timeline. The commitments side of the same meeting lives in commitments.js (ingestMinutes); this
 // only answers "who did I meet", so it is safe to run on top of it: the same meeting never lands twice on a timeline.
-import { db } from "./db.js";
+import { findHandle } from "./handles.js";
 import { getPerson } from "./people.js";
 import { resolveName } from "./commitments.js";
 import { logMeetingOnce } from "./interactions.js";
@@ -20,7 +20,7 @@ export function matchAttendee(raw) {
   const name = clean(raw);
   if (!name) return { state: "none", candidates: [] };
   if (name.includes("@")) {
-    const row = db().prepare("SELECT person_id FROM aliases WHERE kind = 'email' AND value = ? COLLATE NOCASE").get(name.replace(/^.*<|>.*$/g, "").trim());
+    const row = findHandle("email", name.replace(/^.*<|>.*$/g, "").trim());
     const person = row ? getPerson(row.person_id) : null;
     return person ? { state: "person", person, candidates: [] } : { state: "unknown", candidates: [] };
   }

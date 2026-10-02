@@ -18,6 +18,7 @@ import * as gifts from "./gifts.js";
 import { peopleFromMinutes } from "./meetings.js";
 import { runMailSync, mailSyncStatus, setMailSyncEnabled, mailSyncEnabled } from "./mailsync.js";
 import { getPublicUrl } from "./agenda.js";
+import { findDuplicatePeople } from "./duplicates.js";
 
 // Express 4 does not catch a rejected promise: hand it to the error handler.
 const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
@@ -49,6 +50,11 @@ export function installRoutes(app, { version, dataDirConfigured }) {
   // ---------- People ----------
   app.get("/api/people", (req, res) => {
     res.json(people.listPeople({ q: req.query.q || "", circle: req.query.circle || "", archived: req.query.archived || "false" }));
+  });
+  // before /api/people/:id, which would take "duplicates" for an id
+  app.get("/api/people/duplicates", (req, res) => {
+    const minScore = Number(req.query.min_score);
+    res.json(findDuplicatePeople({ minScore: Number.isFinite(minScore) && minScore > 0 ? minScore : 0.7, limit: Number(req.query.limit) || 20, includeArchived: req.query.archived === "true" }));
   });
   app.get("/api/people/:id", (req, res) => {
     const out = people.getPersonFull(req.params.id);

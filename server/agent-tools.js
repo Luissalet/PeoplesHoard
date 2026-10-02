@@ -14,12 +14,13 @@ import * as commitments from "./commitments.js";
 import { peopleFromMinutes } from "./meetings.js";
 import { runMailSync } from "./mailsync.js";
 import * as gifts from "./gifts.js";
+import { findDuplicatePeople } from "./duplicates.js";
 
 export const AGENT_INSTRUCTIONS = `People's Hoard is the user's private address book: who people are, what to remember about them, and when they last spoke.
 Resolve ambiguous names by asking the user which person they mean — never guess when find_people or get_person returns several candidates; two people can share a first name.
 Never invent facts, birthdays or relationships. Only record what the user actually told you, with add_fact, add_alias or upsert_person.
 When logging an interaction from a chat or e-mail, summarize the gist in one short line with log_interaction; never paste the private message content itself.
-Birthdays without a known year are fine: store them as --MM-DD (month and day only).
+If the book may hold the same person twice, find_duplicate_people lists likely pairs; it never merges, so ask the user before merge_people.\nBirthdays without a known year are fine: store them as --MM-DD (month and day only).
 Call find_people or get_person before writing, so a fact, alias or interaction lands on the right person.
 Who the person is goes in "summary" ("vecina del cuarto", "compañero del máster", "amigo de la infancia") and their group in "circles" (familia, amigos, trabajo, vecinos, ...); tastes, children, jobs and similar go in facts. When the user describes a new person, fill summary and circles in the same upsert_person call.
 merge_people and delete_person are irreversible: confirm with the user before calling them.
@@ -366,6 +367,18 @@ export const TOOLS = [
       if (!out) fail("Esa idea de regalo no existe.", { status: 404 });
       return out;
     },
+  ),
+
+  tool(
+    "find_duplicate_people",
+    "Find people who are probably the same person twice (read-only).\nFind pairs of people that look like duplicates: similar names (word sets, initials), the same e-mail or phone written differently, the same birthday. Returns the pairs with a score, the reasons and which one to keep (the one with more history). It only suggests: ask the user, then call merge_people.\nSinónimos: duplicados, contactos repetidos, misma persona dos veces, limpiar agenda, personas parecidas",
+    z.object({
+      min_score: z.number().min(0.3).max(1).default(0.7).describe("Lowest similarity to report (0.7 by default)"),
+      limit: z.number().int().min(1).max(100).default(20),
+      include_archived: z.boolean().default(false),
+    }),
+    RO,
+    ({ min_score, limit, include_archived }) => findDuplicatePeople({ minScore: min_score, limit, includeArchived: include_archived }),
   ),
 
   tool(
