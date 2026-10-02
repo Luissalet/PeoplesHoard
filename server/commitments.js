@@ -13,10 +13,13 @@ import { z } from "zod";
 import { db, uid, now, getSetting, setSetting } from "./db.js";
 import { fold } from "./text.js";
 import { today as todayLocal, addDays, localDate } from "./dates.js";
-import { resolveDue } from "./due.js";
+import { parseDue } from "./hoard-commons/dates.js";
 import { getPerson, createPerson, resolvePersonRef } from "./people.js";
 import { logMeetingOnce } from "./interactions.js";
 import * as family from "./hoard-link.js";
+
+/** ISO day for a spoken or written due date ("el martes", "en dos semanas", "15 de octubre") relative to `base`, or null when the words do not name one day. The parser is the family's (hoard-commons/dates.js). */
+const resolveDue = (text, base) => (/^\d{4}-\d{2}-\d{2}$/.test(base || "") ? parseDue(text, { today: base }) ?? null : null);
 
 export const DIRECTIONS = ["i_owe", "owed_to_me"];
 export const STATUSES = ["open", "done", "dropped"];
