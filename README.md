@@ -26,6 +26,7 @@ The server binds to `127.0.0.1` only. If port 5182 is busy it walks up to the ne
 | `PORT_STRICT=1` | Do not fall back to another port. |
 | `PEOPLE_DATA_DIR` | Data folder (default `<repo>/data`, gitignored). Contains `peoples-hoard.db` and `mcp-token`. |
 | `PEOPLE_ALLOWED_HOSTS` | Extra host names accepted behind a tunnel (see below). |
+| `PEOPLE_MAIL_AUTO=0` | Turn off the 30-minute pass that reads the hub's mail for the last contact (default on; see From the rest of the family). |
 | `PEOPLE_COMMITMENTS_AUTO=0` | Turn off the background sweep that reads meeting minutes from the Hoard Link hub (default on; see Commitments). |
 | `HOARD_HUB_URL` / `HOARD_EVENTS=0` | Where the Hoard Link hub is (found by itself by default), and a switch to stop sending events. |
 | `PEOPLE_URL` | MCP bridge: base URL of the running app (default `http://127.0.0.1:5182`). Must be local. |
@@ -52,8 +53,17 @@ A commitment has a direction (`i_owe` / `owed_to_me`), a person (or the name as 
 - **From meetings.** Funes writes the minutes of a recorded meeting (summary, decisions and action items with evidence). People's Hoard asks for them through the Hoard Link hub (`scribe_minutes` on Funes, never by reading Funes's files) and turns each action item into a commitment: what *you* said you would do is `i_owe` (the other person is the counterpart), what someone else said is `owed_to_me`. Names resolve like everywhere else (exact, alias, fuzzy). Nothing goes straight into the list unless the direction and the person are both certain: a name that matches nobody or several people, an owner the minutes do not name (or give as `otros` or a speaker label such as `S1`), my own promise with no recipient the book knows, and a promise between two other people all go to a **review queue** instead. There you choose who owes (a promise made by *me* or *to me*), pick a candidate, create the person or discard; an item already in the list can be corrected the same way with *Editar* (direction, person, day). The meeting is logged once on each person's timeline as *Reunión: <title>*. While the hub answers, a sweep every 60 seconds reads `funes.minutes.ready` events (`GET <hub>/api/events?type=funes.minutes.ready&since_id=…`, with this app's token; the last id is remembered in the database; the first contact starts from "now", so old meetings are not replayed on their own: use `commitments_ingest_minutes` for those). `PEOPLE_COMMITMENTS_AUTO=0` switches the sweep off. To read a meeting again after a fix, `commitments_ingest_minutes(session_id, replace=true)` (add `regenerate=true` to have Funes write the minutes again) first drops what the earlier reading left that you have not touched (open, never edited, not chosen in the review queue; plus proposals still waiting) and then ingests; done, dropped, edited or deliberately discarded items stay.
 - **From text.** Paste a mail or a conversation: the local model (through the hub) proposes commitments, each with the exact words that support it; proposals whose quote is not literally in the text are dropped, and everything goes to the review queue, never straight in. With no model loaded the answer is `no_model`.
 - **From the assistant.** `commitment_add` records one said in a chat. A day is only kept if it is a real day or the words name exactly one ("el martes", "en dos semanas", "15 de octubre"); otherwise the words stay as `due_text`: nothing is guessed.
-- **Events.** `people.commitment.added`, `people.commitment.done` and `people.commitment.overdue` (once per item; a new deadline earns a new one) are sent to the hub, so a rule can turn them into a notification.
+- **Events.** `people.commitment.added {title, due, ref, person, …}` is sent only for a commitment you owe (`i_owe`) that has a day (when a commitment becomes that later, a day added or the direction fixed, it is sent then): the hub's rule turns it into a deadline in the paperwork app, with `ref = hoard://people/commitment/<id>` pointing back. Any other new commitment (someone owes you, or there is no day yet) is announced as `people.commitment.noted` with the same data as before. `people.commitment.done` and `people.commitment.overdue` (once per item; a new deadline earns a new one) are sent as always.
 - **Merge and delete.** Merging two people moves their commitments; deleting a person keeps their commitments with the name as written.
+
+### From the rest of the family (through the hub)
+
+Everything here talks to the Hoard Link hub and stays quiet without it; nothing is read from other apps' files.
+
+- **Who was at a meeting.** `people_from_minutes {minutes_id}` asks Funes for the minutes (`minutes_get`, falling back to `scribe_minutes` on an older Funes when asked to write them), matches each attendee by name, alias or e-mail address (several matches are never guessed) and writes *Reunión: <title>* on the day of the meeting on each person's timeline. It creates nobody: attendees that match no one come back as `unmatched`, several people as `ambiguous`. It is idempotent per meeting and person, also against the commitments road above (same title, same day, once), and links the person to the minutes in the hub's reference graph (`hoard://people/person/<id>` to `hoard://funes/minutes/<id>`). The hub's rule for `funes.minutes.ready` calls it by itself.
+- **Last contact from mail.** The hub reads the inbox once for the family. People's Hoard registers a mail interest whose `from_addresses` are the e-mail aliases of the people in the book (not archived people, at most 300; registered again when the set changes, and a changed set re-reads the hub's stored mail), reads what came from them every 30 minutes while it runs (and with `contacts_sync_mail` or **Leer ahora** in the settings), and, for each person, keeps the date, the channel *Correo* and the subject as a one-line note, at most one line per person and day. The body is never asked for or stored, and no mail is claimed (it is not this app's). Only while the hub's mail gateway is on (`mailAvailable()`); the setting *Actualizar el último contacto con el correo* and `PEOPLE_MAIL_AUTO=0` turn it off.
+- **Gift ideas.** Per person: an idea, an optional page and an optional budget (`gift_idea_add`, `gift_ideas`, the *Ideas de regalo* section of the person's page). `gift_watch {idea_id}` (or *Vigilar precio*) asks Tantalus, through the hub, to watch it (`watcher_add` with the idea's text, page and budget, `source_ref = hoard://people/gift/<id>`) and keeps the watcher id; asking again answers the same watcher. `gift_days_before` days before a birthday (setting, default 21) the saved ideas that are still to give go to the daily digest as a `digest.item` event: "Cumpleaños de X en N días: ideas guardadas: …", once per person and birthday.
+- **Family agenda.** `GET /api/family/agenda` (the app's own token) answers with birthdays (`birthday`, with the age when the year is known), follow-ups due by each person's cadence, last contact plus the days they wanted to talk (`followup`; one already overdue stays on the first day of a window that includes today) and open commitments with a day (`deadline`, both directions; what I owe is `high`). The manifest says `"x-family": {"agenda": true}`.
 
 Birthdays are stored as `YYYY-MM-DD` (year known) or `--MM-DD` (year unknown); the upcoming window and age computation handle the Dec→Jan boundary and Feb 29 in non-leap years.
 
@@ -81,6 +91,11 @@ All routes are JSON, validated with zod, and answer errors as `{ "error": "…" 
 | `GET/POST /api/commitments/sync` | State of the background sweep; `POST` runs one now. |
 | `GET /api/circles` | Circle names with counts. |
 | `GET /api/export` / `POST /api/import` | JSON backup and restore (people, aliases, facts, interactions, reminders and commitments). |
+| `GET/POST/PATCH/DELETE /api/gifts…` | Gift ideas: `GET /api/gifts?person=&status=`, `POST /api/people/:id/gifts`, `PATCH`/`DELETE /api/gifts/:id`, `POST /api/gifts/:id/watch`. |
+| `POST /api/meetings/from-minutes` | `{ minutes_id, generate? }`: the same as `people_from_minutes`. |
+| `GET/POST /api/mail-sync` | State of the mail pass; `POST` runs one now (`{ force }` also when switched off). |
+| `GET/POST /api/settings` | `{ gift_days_before, mail_sync }`. |
+| `GET /api/family/agenda` | The family agenda contract (birthdays, follow-ups, commitments with a day); needs this app's own bearer token. |
 | `GET /api/agent/tools` | Tool catalogue (name, description, JSON schema, annotations) and the assistant instructions. |
 | `POST /api/agent/call` | `{ name, arguments }` with `Authorization: Bearer <token>`; used by the MCP bridge. |
 
@@ -98,7 +113,7 @@ All routes are JSON, validated with zod, and answer errors as `{ "error": "…" 
 
 `faustus-plugin.json` describes the app for Faustus (health check, launch hint and the MCP command with placeholders).
 
-Tools (22):
+Tools (27):
 
 | Tool | Purpose |
 | --- | --- |
@@ -121,6 +136,10 @@ Tools (22):
 | `commitments_ingest_minutes` | Ask Funes (through the hub) for a meeting's minutes and record their action items (`replace` re-reads a meeting, dropping what the user has not touched; `regenerate` rewrites the minutes). Reports `no_model`, `hub_down`, `tool_missing`, `unknown_session` or `funes_error` instead of failing. |
 | `commitments_extract_text` | Propose commitments from pasted text with the local model; they go to the review queue. |
 | `commitments_digest` | What is overdue and due soon, in words: "le debes a X…", "X te debe…". |
+| `people_from_minutes` | Log "Reunión: <title>" on each attendee of a meeting who is in the book (minutes from Funes through the hub); reports `unmatched` and `ambiguous`; idempotent. |
+| `contacts_sync_mail` | Read the hub's mail from the people in the book and keep date, channel and subject as their last contact (never a body); `status` is `ok`, `off`, `mail_unavailable`, `no_addresses`, `register_failed` or `read_failed`. |
+| `gift_idea_add` / `gift_ideas` | Save a gift idea for a person (page and budget optional; the same idea is not saved twice) / list ideas for one person or everyone. |
+| `gift_watch` | Ask Tantalus (through the hub) to watch a gift idea's price or stock and keep the watcher id. Reports `hub_down`, `tool_missing`, `tantalus_unavailable` or `tantalus_error`. |
 | `merge_people` | Merge a duplicate into another person; commitments move too (destructive). |
 | `delete_person` | Delete a person and everything linked to them; commitments stay with the name as written (destructive). |
 
@@ -133,7 +152,7 @@ Every description ends with a `Sinónimos:` line of Spanish words. Ambiguous nam
 - Search combines a fold-based substring pass (catches mid-word partial matches and accents) with an FTS5 prefix pass for broader recall over notes/facts.
 - Requests are accepted only from `localhost` / `127.0.0.1` origins; cross-site requests are rejected.
 - An alias's `kind` + `value` is globally unique: one WhatsApp name, e-mail or phone number can only ever resolve to one person.
-- The only network calls are to the local Hoard Link hub (events, the Funes minutes proxy and the local model); when it is not there the app works as before and says so where it matters.
+- The only network calls are to the local Hoard Link hub (events, the Funes minutes proxy, the local model, its mail gateway, Tantalus's watchers and the reference graph); when it is not there the app works as before and says so where it matters.
 
 ## Verification
 
@@ -148,9 +167,9 @@ Tests use temporary data directories and never touch `data/`.
 
 ```
 server/   app.js (Express), index.js (boot), db.js, people.js, aliases.js, facts.js,
-          interactions.js, reminders.js, commitments.js, commitments-poller.js, due.js, hoard-link.js, upcoming.js, dates.js, text.js, routes.js,
+          interactions.js, reminders.js, commitments.js, commitments-poller.js, meetings.js, mailsync.js, gifts.js, agenda.js, background.js, hub-chat.js, due.js, hoard-link.js, upcoming.js, dates.js, text.js, routes.js,
           agent-tools.js, agent-routes.js, mcp.js, port.js
-client/   React 19 + Vite + Tailwind v4 (pages: Personas, Persona, Agenda, Compromisos, Ajustes)
+client/   React 19 + Vite + Tailwind v4 (pages: Personas, Persona with its gift ideas, Agenda, Compromisos, Ajustes)
 scripts/  launch.mjs, dev.mjs
 tests/    node:test suites
 ```

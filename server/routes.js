@@ -14,6 +14,10 @@ import { manifest, serviceWorker } from "./manifest.js";
 import * as commitments from "./commitments.js";
 import { syncStatus, sweep } from "./commitments-poller.js";
 import * as family from "./hoard-link.js";
+import * as gifts from "./gifts.js";
+import { peopleFromMinutes } from "./meetings.js";
+import { runMailSync, mailSyncStatus, setMailSyncEnabled, mailSyncEnabled } from "./mailsync.js";
+import { getPublicUrl } from "./agenda.js";
 
 // Express 4 does not catch a rejected promise: hand it to the error handler.
 const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
@@ -25,6 +29,7 @@ const exportSchema = z.object({
   interactions: z.array(z.record(z.string(), z.any())),
   reminders: z.array(z.record(z.string(), z.any())),
   commitments: z.array(z.record(z.string(), z.any())).optional(),
+  gift_ideas: z.array(z.record(z.string(), z.any())).optional(),
 });
 
 export function installRoutes(app, { version, dataDirConfigured }) {
@@ -145,6 +150,39 @@ export function installRoutes(app, { version, dataDirConfigured }) {
   });
   app.delete("/api/commitments/:id", (req, res) => res.json({ ok: commitments.deleteCommitment(req.params.id) }));
 
+  // ---------- Gift ideas ----------
+  app.get("/api/gifts", (req, res) => {
+    res.json({ gifts: gifts.listGifts({ person_id: req.query.person || undefined, status: req.query.status || "idea" }), days_before: gifts.giftDaysBefore() });
+  });
+  app.post("/api/people/:id/gifts", (req, res) => {
+    const out = gifts.addGift(req.params.id, req.body || {});
+    res.status(out.created ? 201 : 200).json(out);
+  });
+  app.patch("/api/gifts/:id", (req, res) => {
+    const out = gifts.updateGift(req.params.id, req.body || {});
+    return out ? res.json(out) : notFound(res);
+  });
+  app.delete("/api/gifts/:id", (req, res) => res.json({ ok: gifts.deleteGift(req.params.id) }));
+  app.post("/api/gifts/:id/watch", asyncRoute(async (req, res) => {
+    const out = await gifts.watchGift(req.params.id);
+    return out ? res.json(out) : notFound(res);
+  }));
+
+  // ---------- Meetings and mail (from the hub) ----------
+  app.post("/api/meetings/from-minutes", asyncRoute(async (req, res) => {
+    const body = req.body || {};
+    res.json(await peopleFromMinutes(body.minutes_id, { generate: !!body.generate }));
+  }));
+  app.get("/api/mail-sync", (req, res) => res.json(mailSyncStatus()));
+  app.post("/api/mail-sync", asyncRoute(async (req, res) => res.json({ result: await runMailSync({ force: !!(req.body || {}).force }), sync: mailSyncStatus() })));
+  app.get("/api/settings", (req, res) => res.json({ gift_days_before: gifts.giftDaysBefore(), mail_sync: mailSyncEnabled(), public_url: getPublicUrl() }));
+  app.post("/api/settings", (req, res) => {
+    const body = req.body || {};
+    if (body.gift_days_before !== undefined) gifts.setGiftDaysBefore(body.gift_days_before);
+    if (body.mail_sync !== undefined) setMailSyncEnabled(body.mail_sync);
+    res.json({ gift_days_before: gifts.giftDaysBefore(), mail_sync: mailSyncEnabled() });
+  });
+
   // ---------- Discovery / agenda ----------
   app.get("/api/resolve", (req, res) => {
     const name = req.query.name || "";
@@ -178,6 +216,7 @@ export function installRoutes(app, { version, dataDirConfigured }) {
       interactions: ids.flatMap((id) => interactions.listInteractions(id)),
       reminders: reminders.listReminders({}),
       commitments: commitments.listCommitments({ status: "all", limit: 2000 }),
+      gift_ideas: gifts.listGifts({ status: "all", limit: 1000 }),
     });
   });
 
@@ -224,7 +263,7 @@ export function installRoutes(app, { version, dataDirConfigured }) {
     for (const i of data.interactions) {
       const personId = idMap.get(i.person_id);
       if (!personId) continue;
-      interactions.createInteraction(personId, { at: i.at, channel: i.channel, summary: i.summary, source: "manual" });
+      interactions.createInteraction(personId, { at: i.at, channel: i.channel, summary: i.summary, source: "manual" }, { ref: i.ref || null });
       importedInteractions++;
     }
     for (const r of data.reminders) {
@@ -247,7 +286,19 @@ export function installRoutes(app, { version, dataDirConfigured }) {
         // an entry that does not validate is skipped rather than failing the whole import
       }
     }
-    res.json({ people: importedPeople, aliases: importedAliases, facts: importedFacts, interactions: importedInteractions, reminders: importedReminders, commitments: importedCommitments });
+    let importedGifts = 0;
+    for (const g of data.gift_ideas || []) {
+      const personId = idMap.get(g.person_id);
+      if (!personId) continue;
+      try {
+        const added = gifts.addGift(personId, { idea: g.idea, url: g.url || "", budget: g.budget ?? null });
+        if (added.created && (g.status === "bought" || g.status === "dropped")) gifts.updateGift(added.gift.id, { status: g.status });
+        importedGifts++;
+      } catch {
+        // an entry that does not validate is skipped rather than failing the whole import
+      }
+    }
+    res.json({ people: importedPeople, aliases: importedAliases, facts: importedFacts, interactions: importedInteractions, reminders: importedReminders, commitments: importedCommitments, gift_ideas: importedGifts });
   });
 
   // PWA manifest and service worker.

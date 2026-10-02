@@ -3,7 +3,7 @@ import { api } from "../api.js";
 import { useApp } from "../App.jsx";
 import { Page, Section, Field, useAction, ConfirmDialog } from "../components/ui.jsx";
 import { PersonCommitments } from "../components/Commitments.jsx";
-import { FactsSection, AliasesSection, InteractionsSection, RemindersSection } from "../components/PersonSections.jsx";
+import { FactsSection, AliasesSection, InteractionsSection, RemindersSection, GiftsSection } from "../components/PersonSections.jsx";
 import { daysAgoLabel, birthdayLabel } from "../format.js";
 
 function HeaderForm({ person, onSave, onCancel, busy }) {
@@ -228,6 +228,8 @@ export default function Persona({ id }) {
         <Section title="Datos"><FactsSection person={person} reload={load} notify={notify} /></Section>
         <Section title="Alias"><AliasesSection person={person} reload={load} notify={notify} /></Section>
       </div>
+
+      <div className="mt-4"><Section title="Ideas de regalo"><GiftsSection person={person} notify={notify} /></Section></div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Section title="Línea de tiempo"><InteractionsSection person={person} reload={load} notify={notify} /></Section>

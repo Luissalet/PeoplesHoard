@@ -12,6 +12,13 @@ export async function startFakeHub() {
     chat: { status: 200, body: { ok: true, text: "{}", json: { commitments: [] }, model: "fake-model" } },
     chats: [],              // chat bodies People sent
     eventQueries: [],       // GET /api/events urls
+    tools: {},              // "app.tool" -> (arguments) => result, or { __error: { status, error } }
+    mailStatus: { ready: true, interval_min: 10, fresh_s: 5 },
+    mail: [],               // messages the gateway holds: { id, message_id, subject, from_addr, from_name, date_ts, ... }
+    mailRequests: [],       // GET /api/mail/messages urls
+    interests: [],          // specs People registered
+    refs: [],               // links People posted to /api/refs
+    claims: [],             // mail claims People posted (it must make none)
   };
   const server = http.createServer((req, res) => {
     let raw = "";
@@ -29,7 +36,25 @@ export async function startFakeHub() {
         const events = state.feed.filter((e) => e.id > since && (!type || e.type === type));
         return send(200, { ok: true, last_id: state.lastId, events });
       }
+      if (req.method === "POST" && url.pathname === "/api/refs") { state.refs.push(body); return send(200, { ok: true }); }
+      if (req.method === "POST" && url.pathname === "/api/mail/claim") { state.claims.push(body); return send(200, { ok: true }); }
+      if (req.method === "GET" && url.pathname === "/api/mail/status") return send(200, { ok: true, ...state.mailStatus });
+      if (req.method === "POST" && url.pathname === "/api/mail/interests") { state.interests.push(body.spec); return send(200, { ok: true }); }
+      if (req.method === "GET" && url.pathname === "/api/mail/messages") {
+        state.mailRequests.push(req.url);
+        const since = Number(url.searchParams.get("since_id") || 0);
+        const limit = Number(url.searchParams.get("limit") || 100);
+        const wanted = state.interests.at(-1)?.from_addresses;
+        const rows = state.mail.filter((m) => m.id > since && (!wanted || wanted.includes(String(m.from_addr).toLowerCase()))).sort((a, b) => a.id - b.id).slice(0, limit);
+        return send(200, { ok: true, messages: rows, last_id: rows.length ? rows.at(-1).id : since });
+      }
       const proxy = url.pathname.match(/^\/api\/apps\/([^/]+)\/call$/);
+      if (req.method === "POST" && proxy && state.tools[`${proxy[1]}.${body.tool}`]) {
+        state.calls.push({ app: proxy[1], tool: body.tool, arguments: body.arguments });
+        const result = state.tools[`${proxy[1]}.${body.tool}`](body.arguments);
+        if (result && result.__error) return send(200, { ok: false, app: proxy[1], tool: body.tool, status: result.__error.status, error: result.__error.error });
+        return send(200, { ok: true, app: proxy[1], tool: body.tool, status: 200, result });
+      }
       if (req.method === "POST" && proxy) {
         state.calls.push({ app: proxy[1], tool: body.tool, arguments: body.arguments });
         const result = state.minutes[body.arguments?.session_id];

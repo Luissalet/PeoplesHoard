@@ -61,6 +61,21 @@ export const api = {
     sync: () => request("GET", "/api/commitments/sync"),
     syncNow: () => request("POST", "/api/commitments/sync"),
   },
+  gifts: {
+    list: (filter) => request("GET", `/api/gifts${qs(filter)}`),
+    add: (personId, data) => request("POST", `/api/people/${personId}/gifts`, data),
+    update: (id, data) => request("PATCH", `/api/gifts/${id}`, data),
+    remove: (id) => request("DELETE", `/api/gifts/${id}`),
+    watch: (id) => request("POST", `/api/gifts/${id}/watch`, {}),
+  },
+  settings: {
+    get: () => request("GET", "/api/settings"),
+    save: (data) => request("POST", "/api/settings", data),
+  },
+  mailSync: {
+    status: () => request("GET", "/api/mail-sync"),
+    run: () => request("POST", "/api/mail-sync", {}),
+  },
   resolve: (name) => request("GET", `/api/resolve${qs({ name })}`),
   upcoming: (days) => request("GET", `/api/upcoming${qs({ days })}`),
   circles: () => request("GET", "/api/circles"),

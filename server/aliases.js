@@ -4,6 +4,7 @@
 import { z } from "zod";
 import { db, uid, now } from "./db.js";
 import { reindexPerson, ALIAS_KINDS, getPerson } from "./people.js";
+import { contactsChanged } from "./mailsync.js";
 
 export const aliasInput = z.object({
   kind: z.enum(ALIAS_KINDS).default("other"),
@@ -36,6 +37,7 @@ export function addAlias(personId, input) {
   db().prepare("INSERT INTO aliases (id, person_id, kind, value, created_at) VALUES (?, ?, ?, ?, ?)")
     .run(id, personId, data.kind, data.value, now());
   reindexPerson(personId);
+  if (data.kind === "email") contactsChanged();
   return getAlias(id);
 }
 
@@ -48,6 +50,7 @@ export function updateAlias(id, patch) {
   if (clash && clash.id !== id) throw Object.assign(new Error(`Ese ${next.kind} ya pertenece a otra persona.`), { status: 409 });
   db().prepare("UPDATE aliases SET kind = ?, value = ? WHERE id = ?").run(next.kind, next.value, id);
   reindexPerson(current.person_id);
+  if (current.kind === "email" || next.kind === "email") contactsChanged();
   return getAlias(id);
 }
 
@@ -56,5 +59,6 @@ export function deleteAlias(id) {
   if (!current) return false;
   db().prepare("DELETE FROM aliases WHERE id = ?").run(id);
   reindexPerson(current.person_id);
+  if (current.kind === "email") contactsChanged();
   return true;
 }
