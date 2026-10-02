@@ -1,6 +1,8 @@
 // Date helpers. Interaction/reminder dates are plain "YYYY-MM-DD" or ISO
 // datetimes; birthdays are "YYYY-MM-DD" (year known) or "--MM-DD" (year
 // unknown, the ISO 8601 "reduced accuracy" convention).
+import { daysBetween } from "./hoard-commons/dates.js";
+
 const pad = (n) => String(n).padStart(2, "0");
 
 export function today() {
@@ -44,20 +46,8 @@ export function isValidBirthday(input) {
   return parseBirthday(input) !== null;
 }
 
-function toUTC(dateStr) {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return Date.UTC(y, m - 1, d);
-}
-
-function daysBetween(from, to) {
-  return Math.round((toUTC(to) - toUTC(from)) / 86400000);
-}
-
-/** "YYYY-MM-DD" + n days (n may be negative). */
-export function addDays(dateStr, n) {
-  const d = new Date(toUTC(dateStr) + n * 86400000);
-  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
-}
+// addDays / daysBetween are the family's (hoard-commons/dates.js): "YYYY-MM-DD" in, "YYYY-MM-DD" / whole days out.
+export { addDays, daysBetween } from "./hoard-commons/dates.js";
 
 function safeDateStr(year, month, day) {
   // Feb 29 in a non-leap target year rolls back to Feb 28.
@@ -94,5 +84,6 @@ export function daysSince(iso, from = today()) {
   if (!iso) return null;
   // `today()` is local time, so the timestamp must be read as a local date too:
   // an interaction at 22:25Z on the 22nd is "today" at 00:25 local on the 23rd.
-  return Math.max(0, daysBetween(localDate(iso), from));
+  const days = daysBetween(localDate(iso), from);
+  return days === null ? null : Math.max(0, days);
 }
