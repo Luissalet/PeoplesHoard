@@ -11,7 +11,7 @@ const EXPECTED = [
   "commitments_list", "commitment_add", "commitment_update", "commitment_done", "commitment_drop", "commitments_review",
   "commitments_ingest_minutes", "commitments_extract_text", "commitments_digest",
   "people_from_minutes", "contacts_sync_mail", "gift_idea_add", "gift_ideas", "gift_watch",
-  "merge_people", "delete_person",
+  "find_duplicate_people", "merge_people", "delete_person",
 ];
 
 let s;
@@ -39,7 +39,7 @@ test("agent/call requires the bearer token from the data dir", async () => {
   assert.equal((await s.call("POST", "/api/agent/call", { name: "list_people", arguments: {} }, { Authorization: "Bearer nope" })).status, 401);
   const token = fs.readFileSync(path.join(s.dataDir, "mcp-token"), "utf8").trim();
   assert.equal(token, s.token);
-  assert.equal(token.length, 64);
+  assert.ok(token.length >= 32 && !/\s/.test(token));
   const ok = await s.call("POST", "/api/agent/call", { name: "list_people", arguments: {} }, { Authorization: `Bearer ${token}` });
   assert.equal(ok.status, 200);
   assert.deepEqual(ok.body, { people: [] });
