@@ -73,8 +73,10 @@ export const CHANNELS = { whatsapp: "WhatsApp", email: "Correo", call: "Llamada"
 export const ALIAS_KINDS = { whatsapp: "WhatsApp", email: "Correo", phone: "Teléfono", handle: "Usuario", other: "Otro" };
 export const REMINDER_KINDS = { birthday: "Cumpleaños", followup: "Seguimiento", custom: "Personal" };
 
-export const SOURCE_LABELS = { funes: "Reunión", chat: "Chat", manual: "Manual", text: "Texto", mail: "Correo" };
+export const SOURCE_LABELS = { funes: "Reunión", chat: "Chat", manual: "Manual", text: "Texto", mail: "Correo", whatsapp: "WhatsApp" };
 export const DIRECTION_LABELS = { i_owe: "Yo debo", owed_to_me: "Me deben" };
+/** The chip on each commitment: «Le debo» (I owe them) / «Me debe» (they owe me). */
+export const DIRECTION_CHIP = { i_owe: "Le debo", owed_to_me: "Me debe" };
 
 /** "vence hoy", "venció hace 3 días", "para el 06/10/2026", «el viernes» or "sin fecha". */
 export function commitmentDue(c) {

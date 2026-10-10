@@ -1,9 +1,10 @@
 // Commitments: who promised what to whom, and by when.
 //
 // A commitment is either something I owe a person ("i_owe") or something a person
-// owes me ("owed_to_me"). They come from four places: typed by hand, the assistant
+// owes me ("owed_to_me"). They come from five places: typed by hand, the assistant
 // (a chat), the minutes of a meeting that Funes wrote (hub proxy, never by reading
-// Funes's files) and text the user pasted (a mail, a chat). Anything that needs a
+// Funes's files), text the user pasted (a mail, a chat) and WhatsApp messages the
+// assistant hands over (whatsapp.js: rules first, the local model only if asked). Anything that needs a
 // human decision — a name that matches nobody or several people, a promise between
 // two third parties, a proposal written by a model — waits in a review queue and
 // becomes a commitment only when the user says so. Nothing here invents a date: a
@@ -23,7 +24,7 @@ const resolveDue = (text, base) => (/^\d{4}-\d{2}-\d{2}$/.test(base || "") ? par
 
 export const DIRECTIONS = ["i_owe", "owed_to_me"];
 export const STATUSES = ["open", "done", "dropped"];
-export const SOURCE_KINDS = ["funes", "chat", "manual", "text", "mail"];
+export const SOURCE_KINDS = ["funes", "chat", "manual", "text", "mail", "whatsapp"];
 
 const fail = (message, opts = {}) => {
   throw Object.assign(new Error(message), { status: 400, ...opts });
@@ -52,6 +53,7 @@ export const commitmentInput = z.object({
   source_kind: z.enum(SOURCE_KINDS).default("manual"),
   source_ref: z.string().trim().max(200).default(""),
   source_quote: z.string().trim().max(1000).default(""),
+  source_at: z.string().max(40).nullable().default(null),
 });
 export const commitmentPatch = z.object({
   direction: z.enum(DIRECTIONS).optional(),
@@ -79,7 +81,7 @@ function present(row, { today = todayLocal() } = {}) {
     due: row.due,
     due_text: row.due_text,
     status: row.status,
-    source: { kind: row.source_kind, ref: row.source_ref, quote: row.source_quote },
+    source: { kind: row.source_kind, ref: row.source_ref, quote: row.source_quote, ...(row.source_at ? { at: row.source_at } : {}) },
     created_at: row.created_at,
     updated_at: row.updated_at,
     done_at: row.done_at,
@@ -163,10 +165,10 @@ export function addCommitment(input, { dedupe = null, today = todayLocal(), emit
   const id = uid();
   const ts = now();
   db().prepare(
-    `INSERT INTO commitments (id, direction, person_id, person_name_raw, text, due, due_text, status, source_kind, source_ref, source_quote, dedupe_key, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO commitments (id, direction, person_id, person_name_raw, text, due, due_text, status, source_kind, source_ref, source_quote, source_at, dedupe_key, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?)`,
   ).run(id, data.direction, data.person_id, data.person_name_raw, data.text, due, data.due_text, data.source_kind, data.source_ref,
-    data.source_quote, dedupe, ts, ts);
+    data.source_quote, data.source_at, dedupe, ts, ts);
   const commitment = getCommitment(id, { today });
   if (emit) emitEvent("people.commitment.added", commitment);
   return { created: true, commitment };
@@ -274,7 +276,7 @@ export function listReview({ status = "pending", limit = 200 } = {}) {
 
 export const pendingReviewCount = () => db().prepare("SELECT COUNT(*) AS n FROM commitment_review WHERE status = 'pending'").get().n;
 
-function queueReview({ kind, reason, proposal, candidates = [], dedupe }) {
+export function queueReview({ kind, reason, proposal, candidates = [], dedupe }) {
   if (dedupe && db().prepare("SELECT 1 FROM commitment_review WHERE dedupe_key = ?").get(dedupe)) return null;
   const id = uid();
   db().prepare(
@@ -325,6 +327,7 @@ export function resolveReview(id, body = {}, { today = todayLocal() } = {}) {
     source_kind: proposal.source.kind,
     source_ref: proposal.source.ref,
     source_quote: proposal.source.quote,
+    source_at: proposal.source.at || null,
   }, { dedupe: dedupeKey(proposal.source.kind, proposal.source.ref, body.text || proposal.text), today, resolve: body.due_text !== undefined });
   if (personId && proposal.meeting) logMeeting(personId, proposal.meeting);
   db().prepare("UPDATE commitment_review SET status = 'resolved', commitment_id = ?, resolved_at = ? WHERE id = ?").run(result.commitment.id, now(), id);

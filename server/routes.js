@@ -16,6 +16,7 @@ import { syncStatus, sweep } from "./commitments-poller.js";
 import * as family from "./hoard-link.js";
 import * as gifts from "./gifts.js";
 import { peopleFromMinutes } from "./meetings.js";
+import { commitmentsFromMessages } from "./whatsapp.js";
 import { runMailSync, mailSyncStatus, setMailSyncEnabled, mailSyncEnabled } from "./mailsync.js";
 import { getPublicUrl } from "./agenda.js";
 import { findDuplicatePeople } from "./duplicates.js";
@@ -141,6 +142,10 @@ export function installRoutes(app, { version, dataDirConfigured }) {
   app.post("/api/commitments/extract", asyncRoute(async (req, res) => {
     const body = req.body || {};
     res.json(await commitments.extractFromText({ text: body.text, person_hint: body.person_hint || "" }));
+  }));
+  // A batch of chat messages (WhatsApp) the caller already read: the promises in them are recorded (see whatsapp.js).
+  app.post("/api/commitments/from-messages", asyncRoute(async (req, res) => {
+    res.json({ ...(await commitmentsFromMessages(req.body || {})), pending_review: commitments.pendingReviewCount() });
   }));
   app.post("/api/commitments", (req, res) => {
     const out = commitments.addCommitmentByRef({ source_kind: "manual", ...(req.body || {}) });
@@ -284,7 +289,7 @@ export function installRoutes(app, { version, dataDirConfigured }) {
         const added = commitments.addCommitment({
           direction: c.direction, person_id: personId, person_name_raw: personId ? "" : c.person_name_raw || c.person_name || "",
           text: c.text, due: c.due || null, due_text: c.due_text || "", source_kind: source.kind || "manual",
-          source_ref: source.ref || "", source_quote: source.quote || "",
+          source_ref: source.ref || "", source_quote: source.quote || "", source_at: source.at || null,
         }, { emit: false });
         if (c.status === "done" || c.status === "dropped") commitments.updateCommitment(added.commitment.id, { status: c.status }, { emit: false });
         importedCommitments++;

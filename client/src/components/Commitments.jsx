@@ -1,7 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../api.js";
 import { Field, useAction } from "./ui.jsx";
-import { commitmentDue, DIRECTION_LABELS, SOURCE_LABELS } from "../format.js";
+import { commitmentDue, dateTimeLabel, DIRECTION_CHIP, DIRECTION_LABELS, SOURCE_LABELS } from "../format.js";
+
+/** The WhatsApp speech bubble, in the colour of the chip it sits in. */
+export function WhatsAppIcon({ size = 11 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={{ display: "inline-block", verticalAlign: "-1px", marginRight: 3 }}>
+      <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 1.8a8.2 8.2 0 1 1-4.3 15.2l-.3-.2-2.9.8.8-2.8-.2-.3A8.2 8.2 0 0 1 12 3.8Zm-3 3.6c-.2 0-.5.1-.7.4-.3.3-1 1-1 2.4s1 2.8 1.2 3c.1.2 2 3.1 4.9 4.2 2.4.9 2.9.7 3.4.7.5-.1 1.7-.7 1.9-1.4.2-.7.2-1.2.2-1.4-.1-.1-.3-.2-.6-.4l-1.8-.9c-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.6.1-.3-.1-1.1-.4-2.1-1.3-.8-.7-1.3-1.5-1.4-1.8-.2-.3 0-.4.1-.6l.4-.5.3-.4c.1-.2.1-.3 0-.5l-.8-2c-.2-.5-.4-.4-.6-.4Z" />
+    </svg>
+  );
+}
 
 let peopleCache = null;
 const loadPeople = () => (peopleCache ||= api.people.list({}).catch(() => { peopleCache = null; return []; }));
@@ -27,15 +36,19 @@ export function CommitmentItem({ c, showPerson = true, onChange, notify, busy })
         <div className="min-w-0 flex-1">
           <div className={open ? "" : "line-through"} style={open ? undefined : { opacity: 0.6 }}>{c.text}</div>
           <div className="help mt-[2px] flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className={`chip ${c.direction === "i_owe" ? "chip-warn" : "chip-circle"}`}>{DIRECTION_LABELS[c.direction]}</span>
+            <span className={`chip ${c.direction === "i_owe" ? "chip-warn" : "chip-circle"}`} title={DIRECTION_LABELS[c.direction]} data-testid="direction">{DIRECTION_CHIP[c.direction]}</span>
             {showPerson && (c.person_id
               ? <a href={`#/personas/${c.person_id}`} style={{ color: "var(--accent)" }}>{c.person_name}</a>
               : <span>{c.person_name || "sin persona"}</span>)}
             <span className={c.overdue ? "chip chip-danger" : undefined}>{commitmentDue(c)}</span>
-            <span className="chip" title={c.source.quote ? `«${c.source.quote}»` : undefined}>{SOURCE_LABELS[c.source.kind] || c.source.kind}</span>
+            {c.source.kind === "whatsapp"
+              ? <span className="chip chip-ok" data-testid="source" title={c.source.quote ? `«${c.source.quote}»` : undefined}><WhatsAppIcon />WhatsApp</span>
+              : <span className="chip" data-testid="source" title={c.source.quote ? `«${c.source.quote}»` : undefined}>{SOURCE_LABELS[c.source.kind] || c.source.kind}</span>}
             {!open && <span className="chip">{c.status === "done" ? "Cumplido" : "Descartado"}</span>}
           </div>
-          {c.source.quote && <details className="mt-1"><summary className="help cursor-pointer">Lo que se dijo</summary><blockquote className="help mt-1 border-l-2 pl-2" style={{ borderColor: "var(--line)" }}>«{c.source.quote}»</blockquote></details>}
+          {c.source.kind === "whatsapp" && c.source.quote
+            ? <blockquote className="help mt-1 border-l-2 pl-2" style={{ borderColor: "var(--line)" }} data-testid="quote">«{c.source.quote}»{c.source.at && <span className="block" style={{ opacity: 0.8 }}>Mensaje de WhatsApp del {dateTimeLabel(c.source.at)}</span>}</blockquote>
+            : c.source.quote && <details className="mt-1"><summary className="help cursor-pointer">Lo que se dijo</summary><blockquote className="help mt-1 border-l-2 pl-2" style={{ borderColor: "var(--line)" }}>«{c.source.quote}»</blockquote></details>}
           {moving && (
             <form
               className="mt-2 flex flex-wrap items-center gap-2"
@@ -164,6 +177,7 @@ const REASONS = {
   unassigned: (p) => (p.person_name_raw ? `El acta no dice quién se compromete; la otra persona parece ser «${p.person_name_raw}». Elige quién debe.` : "El acta no dice quién se compromete."),
   no_person: () => "Es una promesa tuya, pero el acta no dice a quién.",
   proposed: () => "Propuesto por el modelo a partir de un texto que pegaste: confírmalo.",
+  model_whatsapp: () => "Propuesto por el modelo local a partir de un mensaje de WhatsApp: confírmalo.",
 };
 
 /** One proposal waiting for a decision. Every button settles it at once. */
@@ -182,7 +196,9 @@ export function ReviewCard({ item, people, onChange, notify }) {
       <div className="font-semibold">{proposal.text}</div>
       <div className="help mt-1">{reason}</div>
       <div className="help mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="chip">{SOURCE_LABELS[proposal.source.kind] || proposal.source.kind}</span>
+        {proposal.source.kind === "whatsapp"
+          ? <span className="chip chip-ok"><WhatsAppIcon />WhatsApp</span>
+          : <span className="chip">{SOURCE_LABELS[proposal.source.kind] || proposal.source.kind}</span>}
         {proposal.meeting?.title && <span>{proposal.meeting.title}</span>}
         {proposal.due ? <span>para el {proposal.due.split("-").reverse().join("/")}</span> : proposal.due_text ? <span>«{proposal.due_text}»</span> : <span>sin fecha</span>}
       </div>
