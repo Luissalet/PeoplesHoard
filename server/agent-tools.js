@@ -12,6 +12,7 @@ import { daysSince } from "./dates.js";
 import { personBrief } from "./brief.js";
 import * as commitments from "./commitments.js";
 import { peopleFromMinutes } from "./meetings.js";
+import { commitmentsFromMessages, MAX_BATCH } from "./whatsapp.js";
 import { runMailSync } from "./mailsync.js";
 import * as gifts from "./gifts.js";
 import { findDuplicatePeople } from "./duplicates.js";
@@ -24,7 +25,7 @@ If the book may hold the same person twice, find_duplicate_people lists likely p
 Call find_people or get_person before writing, so a fact, alias or interaction lands on the right person.
 Who the person is goes in "summary" ("vecina del cuarto", "compañero del máster", "amigo de la infancia") and their group in "circles" (familia, amigos, trabajo, vecinos, ...); tastes, children, jobs and similar go in facts. When the user describes a new person, fill summary and circles in the same upsert_person call.
 merge_people and delete_person are irreversible: confirm with the user before calling them.
-Commitments are promises: "i_owe" is what the user must do for someone, "owed_to_me" is what someone owes the user. Record one with commitment_add only when the user said it (or confirms it), with the person and, if given, the day; never invent a deadline: pass due_text in the user's words ("el viernes") and let the server turn it into a date. Before saying what is pending, call commitments_digest or commitments_list; when the user asks how to catch up with someone, prepare_person_chat already lists the open commitments both ways. Meeting minutes from Funes come in with commitments_ingest_minutes (give the session id) and text the user pastes goes through commitments_extract_text: both only propose, and commitments_review shows what waits for a decision (a name that matches nobody, several people with the same name): ask the user before resolving it.
+Commitments are promises: "i_owe" is what the user must do for someone, "owed_to_me" is what someone owes the user. Record one with commitment_add only when the user said it (or confirms it), with the person and, if given, the day; never invent a deadline: pass due_text in the user's words ("el viernes") and let the server turn it into a date. Before saying what is pending, call commitments_digest or commitments_list; when the user asks how to catch up with someone, prepare_person_chat already lists the open commitments both ways. Promises made in WhatsApp chats come in with commitments_from_messages (the caller hands over the messages it read; this app never reads WhatsApp itself and keeps no message text except the sentence that makes each promise). Meeting minutes from Funes come in with commitments_ingest_minutes (give the session id) and text the user pastes goes through commitments_extract_text: both only propose, and commitments_review shows what waits for a decision (a name that matches nobody, several people with the same name): ask the user before resolving it.
 people_from_minutes puts "Reunión: <title>" on the timeline of each attendee of a meeting who is in the book (it takes the id of the minutes, which Funes announces); it never creates people, and attendees it cannot match are returned as unmatched or ambiguous. contacts_sync_mail reads from the hub the mail sent by the people in the book and keeps only the date, the channel and the subject as the last contact; it never reads or stores a body.
 Gift ideas: save one with gift_idea_add when the user mentions something a person would like (or they say what to give); list them with gift_ideas; gift_watch asks Tantalus to watch the idea's price or stock. Some days before a birthday the saved ideas reach the daily digest by themselves.`;
 
@@ -303,6 +304,18 @@ export const TOOLS = [
     z.object({ text: z.string().min(12).max(40000), person_hint: z.string().trim().max(120).optional() }),
     { openWorldHint: true, timeoutMs: 4 * 60 * 1000 },
     ({ text, person_hint }) => commitments.extractFromText({ text, person_hint: person_hint || "" }),
+  ),
+
+  tool(
+    "commitments_from_messages",
+    "Record the promises found in a batch of chat messages (WhatsApp): te lo mando el lunes, me debes la factura.\nTakes messages the caller already read, each { id, chat_id, contact_name, phone, sender: me | them, text, timestamp (ISO or epoch), is_group? }, and finds the promises with fixed Spanish and English rules (promise verbs plus a day relative to the message's date). Each is recorded as a commitment with source whatsapp, the sentence that makes it, the message time, the due day if the words name one, the person (matched by phone, then by name; a contact nobody in the book matches keeps the name as written) and the direction: i_owe when the user promised or the other person says the user owes, owed_to_me the other way round. Questions, conditionals, hedges, negations, quoted or forwarded text and group chats are ignored. Safe to repeat: a message already read adds nothing. A contact name that matches several people goes to commitments_review. refine=true also lets the local model read the messages the rules found nothing in (its findings only go to the review queue). Message text is never sent anywhere else and never reaches the event bus.\nSinónimos: compromisos de whatsapp, me prometió por whatsapp, qué le debo por mensajes, promesas en el chat, deudas en whatsapp",
+    z.object({
+      messages: z.array(z.record(z.string(), z.any())).min(1).max(MAX_BATCH).describe("Chat messages: { id, chat_id, contact_name, phone, sender, text, timestamp }"),
+      refine: z.boolean().default(false).describe("Also ask the local model about messages the rules found nothing in (to the review queue only)"),
+      reprocess: z.boolean().default(false).describe("Read messages again even if they were read before (the same promise is still never recorded twice)"),
+    }),
+    { openWorldHint: true, timeoutMs: 4 * 60 * 1000 },
+    (args) => commitmentsFromMessages(args),
   ),
 
   tool(

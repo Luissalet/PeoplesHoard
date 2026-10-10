@@ -143,6 +143,44 @@ export const MIGRATIONS = [
   ALTER TABLE aliases ADD COLUMN norm TEXT NULL;
   CREATE INDEX aliases_norm ON aliases(kind, norm);
   `,
+  // 5: commitments read from chat messages (WhatsApp). The source kind list is a CHECK constraint, so the table is rebuilt with
+  // "whatsapp" allowed and a column for the time of the message the promise was made in; a ledger remembers which messages were
+  // already read (an opaque hash of chat and message id, never the text), so a batch sent twice adds nothing.
+  `
+  CREATE TABLE commitments_v5 (
+    id TEXT PRIMARY KEY,
+    direction TEXT NOT NULL CHECK (direction IN ('i_owe', 'owed_to_me')),
+    person_id TEXT NULL REFERENCES people(id) ON DELETE SET NULL,
+    person_name_raw TEXT NOT NULL DEFAULT '',
+    text TEXT NOT NULL,
+    due TEXT NULL,
+    due_text TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'done', 'dropped')),
+    source_kind TEXT NOT NULL DEFAULT 'manual' CHECK (source_kind IN ('funes', 'chat', 'manual', 'text', 'mail', 'whatsapp')),
+    source_ref TEXT NOT NULL DEFAULT '',
+    source_quote TEXT NOT NULL DEFAULT '',
+    dedupe_key TEXT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    done_at TEXT NULL,
+    last_nudged_at TEXT NULL,
+    source_at TEXT NULL
+  );
+  INSERT INTO commitments_v5 (id, direction, person_id, person_name_raw, text, due, due_text, status, source_kind, source_ref, source_quote,
+    dedupe_key, created_at, updated_at, done_at, last_nudged_at)
+  SELECT id, direction, person_id, person_name_raw, text, due, due_text, status, source_kind, source_ref, source_quote,
+    dedupe_key, created_at, updated_at, done_at, last_nudged_at FROM commitments;
+  DROP TABLE commitments;
+  ALTER TABLE commitments_v5 RENAME TO commitments;
+  CREATE INDEX commitments_status_due ON commitments(status, due);
+  CREATE INDEX commitments_person ON commitments(person_id);
+  CREATE UNIQUE INDEX commitments_dedupe ON commitments(dedupe_key) WHERE dedupe_key IS NOT NULL;
+
+  CREATE TABLE message_ledger (
+    key TEXT PRIMARY KEY,
+    seen_at TEXT NOT NULL
+  );
+  `,
 ];
 
 let database = null;
