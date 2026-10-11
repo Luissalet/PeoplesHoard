@@ -178,7 +178,7 @@ const REASONS = {
   no_person: () => "Es una promesa tuya, pero el acta no dice a quién.",
   proposed: () => "Propuesto por el modelo a partir de un texto que pegaste: confírmalo.",
   model_whatsapp: () => "Propuesto por el modelo local a partir de un mensaje de WhatsApp: confírmalo.",
-  phone_unknown: (p) => `El nombre «${p.person_name_raw}» encaja con una persona, pero el número${p.phone ? ` ${p.phone}` : ""} no está en su ficha: confirma que es ella y se guardará.`,
+  phone_unknown: (p) => (p.phone ? `El nombre «${p.person_name_raw}» encaja con una persona, pero el número ${p.phone} no está en su ficha: confirma que es ella y se guardará.` : `El nombre «${p.person_name_raw}» encaja con una persona, pero el chat solo trae un apodo (identificador oculto de WhatsApp): confirma que es ella.`),
   doubtful: () => "Parece dicho en broma o con ironía: confirma si es un compromiso de verdad.",
   late_night: () => "Escrito de madrugada: «mañana» puede ser hoy o el día siguiente. Confirma la fecha antes de anotarlo.",
 };

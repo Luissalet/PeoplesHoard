@@ -447,7 +447,7 @@ const digitsPhone = (m) => {
 function matchContact(m, cache) {
   const phone = digitsPhone(m);
   const name = squash(m.contact_name || m.contact || m.chat_name || "");
-  const key = `${phone}|${fold(name)}`;
+  const key = `${phone}|${fold(name)}|${m.name_unverified === true ? "u" : ""}`;
   if (cache.has(key)) return cache.get(key);
   let out = { state: "unknown", person: null, candidates: [], name: name || phone, phone };
   if (phone) {
@@ -458,7 +458,7 @@ function matchContact(m, cache) {
   if (out.state !== "person" && name) {
     const named = commitments.resolveName(name);
     // a number that is in nobody's card, with a name that fits one person: it may be someone else with the same name, so it is asked
-    if (named.state === "person") out = phone ? { ...out, state: "phone_unknown", candidates: [named.person] } : { ...out, state: "person", person: named.person };
+    if (named.state === "person") out = phone || m.name_unverified === true ? { ...out, state: "phone_unknown", candidates: [named.person] } : { ...out, state: "person", person: named.person };
     else if (named.state === "ambiguous") out = { ...out, state: "ambiguous", candidates: named.candidates };
   }
   cache.set(key, out);
@@ -529,7 +529,7 @@ async function refine(unhit, { chat = family.chat, today, done = new Set() }) {
 }
 
 /**
- * Read a batch of chat messages and record the promises in them. Each message: { id, chat_id, contact_name, phone, sender:
+ * Read a batch of chat messages and record the promises in them. Each message: { id, chat_id, contact_name, phone, name_unverified?, sender:
  * "me"|"them" (or from_me), text, timestamp (ISO or epoch), is_group? }. Group chats are skipped (who owes whom is not clear).
  * Safe to repeat: a message already read is skipped, and a promise already recorded is never recorded twice.
  */
