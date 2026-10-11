@@ -17,6 +17,7 @@ import { today as todayLocal, addDays, localDate } from "./dates.js";
 import { parseDue } from "./hoard-commons/dates.js";
 import { getPerson, createPerson, resolvePersonRef } from "./people.js";
 import { logMeetingOnce } from "./interactions.js";
+import { addAlias } from "./aliases.js";
 import * as family from "./hoard-link.js";
 
 /** ISO day for a spoken or written due date ("el martes", "en dos semanas", "15 de octubre") relative to `base`, or null when the words do not name one day. The parser is the family's (hoard-commons/dates.js). */
@@ -131,10 +132,17 @@ const commitmentRef = (id) => `hoard://people/commitment/${id}`;
 /** A commitment the user owns (`i_owe`), still open, with a day: the kind that becomes a deadline elsewhere. */
 export const isOwnDeadline = (c) => !!c && c.direction === "i_owe" && c.status === "open" && !!c.due;
 
-function emitEvent(type, c) {
+/**
+ * The words a commitment has on the bus. A promise read in a chat is never announced with the sentence of the message: only with the
+ * action in plain words («Mandar algo», `override`), because the hub keeps what it is told. The commitment itself keeps its text here.
+ */
+export const eventText = (c, override = null) => (c.source && c.source.kind === "whatsapp" ? override || "Compromiso de WhatsApp" : c.text);
+
+function emitEvent(type, c, override = null) {
+  const words = eventText(c, override);
   const base = {
     id: c.id, direction: c.direction, person_id: c.person_id, person: c.person_name,
-    text: c.text.slice(0, 120), due: c.due, source: c.source.kind,
+    text: words.slice(0, 120), due: c.due, source: c.source.kind,
   };
   if (type !== "people.commitment.added") return family.emit(type, base);
   // `people.commitment.added` is the one the hub turns into a deadline in the paperwork app, so it is only sent for what
@@ -142,7 +150,7 @@ function emitEvent(type, c) {
   // commitment (someone owes me, or no day yet) is announced as `people.commitment.noted`, with the same data as before.
   if (!isOwnDeadline(c)) return family.emit("people.commitment.noted", base);
   const who = c.person_name ? ` (${c.person_name})` : "";
-  return family.emit("people.commitment.added", { ...base, title: `${c.text.slice(0, 160)}${who}`, ref: commitmentRef(c.id) });
+  return family.emit("people.commitment.added", { ...base, title: `${words.slice(0, 160)}${who}`, ref: commitmentRef(c.id) });
 }
 
 function findByKey(key) {
@@ -155,7 +163,7 @@ function findByKey(key) {
  * commitment with that key is returned instead (`created: false`), whatever its status.
  * `resolve: false` keeps the words as they are (used when the source already did the date work).
  */
-export function addCommitment(input, { dedupe = null, today = todayLocal(), emit = true, resolve = true } = {}) {
+export function addCommitment(input, { dedupe = null, today = todayLocal(), emit = true, resolve = true, eventText: override = null } = {}) {
   const data = commitmentInput.parse(input);
   if (data.person_id && !getPerson(data.person_id)) fail("La persona no existe.");
   const existing = findByKey(dedupe);
@@ -170,7 +178,7 @@ export function addCommitment(input, { dedupe = null, today = todayLocal(), emit
   ).run(id, data.direction, data.person_id, data.person_name_raw, data.text, due, data.due_text, data.source_kind, data.source_ref,
     data.source_quote, data.source_at, dedupe, ts, ts);
   const commitment = getCommitment(id, { today });
-  if (emit) emitEvent("people.commitment.added", commitment);
+  if (emit) emitEvent("people.commitment.added", commitment, override);
   return { created: true, commitment };
 }
 
@@ -328,7 +336,11 @@ export function resolveReview(id, body = {}, { today = todayLocal() } = {}) {
     source_ref: proposal.source.ref,
     source_quote: proposal.source.quote,
     source_at: proposal.source.at || null,
-  }, { dedupe: dedupeKey(proposal.source.kind, proposal.source.ref, body.text || proposal.text), today, resolve: body.due_text !== undefined });
+  }, { dedupe: dedupeKey(proposal.source.kind, proposal.source.ref, body.text || proposal.text), today, resolve: body.due_text !== undefined, eventText: proposal.action_label || null });
+  // a number the owner has just tied to a person is remembered, so the next message from it needs no question
+  if (personId && proposal.source.kind === "whatsapp" && proposal.phone) {
+    try { addAlias(personId, { kind: "whatsapp", value: proposal.phone }); } catch { /* it belongs to someone else already: leave it */ }
+  }
   if (personId && proposal.meeting) logMeeting(personId, proposal.meeting);
   db().prepare("UPDATE commitment_review SET status = 'resolved', commitment_id = ?, resolved_at = ? WHERE id = ?").run(result.commitment.id, now(), id);
   return { review: presentReview(db().prepare("SELECT * FROM commitment_review WHERE id = ?").get(id)), commitment: result.commitment, created: result.created };
@@ -626,7 +638,7 @@ export async function nudgeOverdue({ today = todayLocal() } = {}) {
   for (const c of listCommitments({ overdue: true, today })) {
     if (c.last_nudged_at) continue;
     const ok = await family.emit("people.commitment.overdue", {
-      id: c.id, direction: c.direction, person_id: c.person_id, person: c.person_name, text: c.text.slice(0, 120), due: c.due,
+      id: c.id, direction: c.direction, person_id: c.person_id, person: c.person_name, text: eventText(c).slice(0, 120), due: c.due,
       days_overdue: -c.days_until_due,
     }, { block: true });
     if (!ok) break; // the hub is not listening: try again on the next sweep rather than lose them
