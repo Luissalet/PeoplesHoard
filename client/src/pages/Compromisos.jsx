@@ -5,7 +5,7 @@ import { Page, Section, Empty, Field, useAction } from "../components/ui.jsx";
 import { CommitmentItem, CommitmentForm, ReviewCard } from "../components/Commitments.jsx";
 
 const STATUS = { open: "Abiertos", done: "Cumplidos", dropped: "Descartados", all: "Todos" };
-const DIRECTIONS = [["", "Todos"], ["i_owe", "Yo debo"], ["owed_to_me", "Me deben"]];
+const DIRECTIONS = [["", "Todos"], ["i_owe", "Le debo"], ["owed_to_me", "Me debe"]];
 
 const SYNC_WORDS = {
   idle: "al día", processed: "actas leídas", baseline: "esperando nuevas actas", hub_down: "el hub no responde",
@@ -71,6 +71,7 @@ function IngestPanel({ onDone, notify }) {
           <button type="submit" className="btn btn-sm justify-self-start" disabled={busy}>{busy ? "Buscando…" : "Buscar compromisos"}</button>
         </form>
       </div>
+      <p className="help mt-3">Los mensajes de WhatsApp llegan desde Faustus (Ajustes de Faustus → compromisos de WhatsApp, apagado por defecto): aquí aparecen con su cita y el chip de WhatsApp; los dudosos esperan en «Por revisar».</p>
       {outcome && <p className="mt-3 text-[13px]" role="status" style={{ color: outcome.ok ? "var(--ok-ink)" : "var(--danger-ink)" }}>{outcome.text}</p>}
     </Section>
   );
@@ -115,7 +116,7 @@ export default function Compromisos() {
   return (
     <Page
       title="Compromisos"
-      description="Quién prometió qué a quién y para cuándo. Las reuniones de Funes y los textos que pegues traen propuestas; nada entra sin pasar por ti cuando hay dudas."
+      description="Quién prometió qué a quién y para cuándo. Las reuniones de Funes, los mensajes de WhatsApp que Faustus te pase y los textos que pegues traen compromisos; nada entra sin pasar por ti cuando hay dudas."
       actions={<a className="btn btn-sm" href="/api/calendar.ics" download="peoples-hoard-calendar.ics">Descargar calendario</a>}
     >
       {review.length > 0 && (

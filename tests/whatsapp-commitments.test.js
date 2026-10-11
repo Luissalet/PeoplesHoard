@@ -236,7 +236,8 @@ test("events: the deadline event carries the direction and source and never the 
   assert.equal(added.data.direction, "i_owe");
   assert.equal(added.data.source, "whatsapp");
   assert.equal(added.data.due, "2026-10-12");
-  assert.equal(added.data.title, "Mandar la factura (Marta Lozano)");
+  assert.equal(added.data.title, "Mandar algo (Marta Lozano)", "the bus gets the action in plain words, not the sentence");
+  assert.equal(added.data.text, "Mandar algo");
   assert.equal(added.data.ref, `hoard://people/commitment/${mine.id}`);
   const book = commitments.listCommitments({ status: "all" }).find((c) => c.text === "El libro que te presté");
   assert.ok(await wait(() => hub.state.emitted.some((e) => e.type === "people.commitment.noted" && e.data.id === book.id)));

@@ -74,7 +74,7 @@ export const ALIAS_KINDS = { whatsapp: "WhatsApp", email: "Correo", phone: "Tel�
 export const REMINDER_KINDS = { birthday: "Cumpleaños", followup: "Seguimiento", custom: "Personal" };
 
 export const SOURCE_LABELS = { funes: "Reunión", chat: "Chat", manual: "Manual", text: "Texto", mail: "Correo", whatsapp: "WhatsApp" };
-export const DIRECTION_LABELS = { i_owe: "Yo debo", owed_to_me: "Me deben" };
+export const DIRECTION_LABELS = { i_owe: "Le debo", owed_to_me: "Me debe" };
 /** The chip on each commitment: «Le debo» (I owe them) / «Me debe» (they owe me). */
 export const DIRECTION_CHIP = { i_owe: "Le debo", owed_to_me: "Me debe" };
 

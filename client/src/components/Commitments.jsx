@@ -64,8 +64,8 @@ export function CommitmentItem({ c, showPerson = true, onChange, notify, busy })
               }}
             >
               <select className="field field-sm w-[130px]" value={direction} onChange={(e) => setDirection(e.target.value)} aria-label="Quién debe">
-                <option value="i_owe">Yo debo</option>
-                <option value="owed_to_me">Me deben</option>
+                <option value="i_owe">Le debo</option>
+                <option value="owed_to_me">Me debe</option>
               </select>
               <select className="field field-sm w-[170px]" value={personId} onChange={(e) => setPersonId(e.target.value)} aria-label="Persona">
                 <option value="">{c.person_id ? "Sin persona" : c.person_name ? `Sin enlazar («${c.person_name}»)` : "Sin persona"}</option>
@@ -112,8 +112,8 @@ export function CommitmentForm({ person = null, people = [], onAdded, notify }) 
     <form onSubmit={submit} className="mb-4 grid gap-2 sm:grid-cols-[130px_1fr_150px] sm:items-start" aria-label="Nuevo compromiso">
       <Field label="Quién debe">
         <select className="field field-sm" value={form.direction} onChange={set("direction")}>
-          <option value="i_owe">Yo debo</option>
-          <option value="owed_to_me">Me deben</option>
+          <option value="i_owe">Le debo</option>
+          <option value="owed_to_me">Me debe</option>
         </select>
       </Field>
       <Field label="Qué"><input className="field field-sm" value={form.text} onChange={set("text")} placeholder="Qué se prometió" maxLength={2000} required /></Field>
@@ -178,6 +178,9 @@ const REASONS = {
   no_person: () => "Es una promesa tuya, pero el acta no dice a quién.",
   proposed: () => "Propuesto por el modelo a partir de un texto que pegaste: confírmalo.",
   model_whatsapp: () => "Propuesto por el modelo local a partir de un mensaje de WhatsApp: confírmalo.",
+  phone_unknown: (p) => `El nombre «${p.person_name_raw}» encaja con una persona, pero el número${p.phone ? ` ${p.phone}` : ""} no está en su ficha: confirma que es ella y se guardará.`,
+  doubtful: () => "Parece dicho en broma o con ironía: confirma si es un compromiso de verdad.",
+  late_night: () => "Escrito de madrugada: «mañana» puede ser hoy o el día siguiente. Confirma la fecha antes de anotarlo.",
 };
 
 /** One proposal waiting for a decision. Every button settles it at once. */
@@ -206,8 +209,8 @@ export function ReviewCard({ item, people, onChange, notify }) {
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <select className="field field-sm w-[140px]" value={direction} onChange={(e) => setDirection(e.target.value)} aria-label="Quién debe">
           <option value="">¿Quién debe?</option>
-          <option value="i_owe">Yo debo</option>
-          <option value="owed_to_me">Me deben</option>
+          <option value="i_owe">Le debo</option>
+          <option value="owed_to_me">Me debe</option>
         </select>
         {item.candidates.map((p) => (
           <button key={p.id} type="button" className="btn btn-sm" disabled={busy} onClick={() => settle({ action: "accept", person_id: p.id }, "Compromiso anotado.")}>

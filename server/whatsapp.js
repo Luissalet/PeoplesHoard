@@ -119,11 +119,21 @@ const C_EN_PROMISED = rx(`${L}you\\s+promised\\s+(?:me|to)${R}`);
 
 // "te mando un abrazo", "te doy las gracias": courtesy, not a promise
 const COURTESY = rx(String.raw`^\s*(?:(?:un|una|unos|unas|mil|muchos|muchas|mis|mi|el|la|las)\s+)*(?:abrazos?|besos?|besitos?|saludos?|recuerdos?|cari[ñn]os?|gracias|[áa]nimos?|fuerzas?|mimos?|enhorabuena|palabra|raz[óo]n|consejo|bendiciones|suerte|apoyo)`);
-const BENIGN_NEG = /\bno\s+(?:te\s+preocupes|pasa\s+nada|hay\s+(?:problema|prisa)|problem|worries)\b|\bno\s+problem\b|\bno\s+worries\b/gi;
+const BENIGN_NEG = /\bno\s+(?:te\s+preocupes|pasa\s+nada|hay\s+(?:problema|prisa)|problem|worries)\b|\bno\s+problem\b|\bno\s+worries\b|\bdon'?t\s+worry\b|\bno\s+te\s+agobies\b|\bno\s+te\s+rayes\b|\bsin\s+problema\b/gi;
 const NEGATION = /(?<![\p{L}\d])(?:no|nunca|jam[aá]s|tampoco|ni|not|never|won't|wont|can't|cant|don't|dont|couldn't|shouldn't)(?![\p{L}\d])|n't(?![\p{L}\d])/iu;
-const CONDITIONAL = /(?<![\p{L}\d])(?:si|if|cuando|when|siempre\s+que|en\s+caso\s+de)(?![\p{L}\d])/iu;
-const HEDGE = /(?<![\p{L}\d])(?:quiz[aá]s?|tal\s+vez|a\s+lo\s+mejor|puede\s+que|podr[ií]a|ojal[aá]|maybe|perhaps|might|igual(?!\s+que)|probablemente|probably|supongo\s+que)(?![\p{L}\d])/iu;
+const CONDITIONAL = /(?<![\p{L}\d])(?:si|if|cuando|when|siempre\s+que|en\s+caso\s+de|unless|a\s+menos\s+que|salvo\s+que|a\s+no\s+ser\s+que|aunque|although|though|as\s+long\s+as|provided|a\s+ver\s+si|depende|depending|dependiendo)(?![\p{L}\d])/iu;
+const HEDGE = /(?<![\p{L}\d])(?:quiz[aá]s?|tal\s+vez|a\s+lo\s+mejor|puede\s+que|podr[ií]a|ojal[aá]|maybe|perhaps|might|igual(?!\s+que)|probablemente|probably|supongo(?:\s+que)?|creo\s+que|no\s+creo|no\s+s[eé]\s+si|i\s+think|i\s+guess|i\s+suppose|not\s+sure|no\s+estoy\s+seguro|intentar[eé]|tratar[eé]|voy\s+a\s+intentar|voy\s+a\s+tratar|i'll\s+try|i\s+will\s+try|if\s+possible|con\s+suerte|hopefully|weather\s+permitting)(?![\p{L}\d])/iu;
 const REPORTED = /^\s*(?:dice|dijo|dicen|dec[ií]a|ha\s+dicho|me\s+ha\s+dicho|me\s+dijo|te\s+dijo|said|says|he\s+said|she\s+said|they\s+said)(?![\p{L}\d])/iu;
+// "sí, claro", "eso dijo", "yeah right": the words say yes and the tone says no. Those messages are not recorded, they are asked about.
+const SARCASM = /(?<![\p{L}\d])(?:s[ií],?\s+claro|ya\s+(?:ves|lo\s+creo)|eso\s+dijo|a\s+la\s+gr(?:ie|ei)ga|cuando\s+las\s+vacas|yeah,?\s+right|sure\s+you\s+will|that's\s+what\s+(?:he|she|you)\s+said)(?![\p{L}\d])|🙄|😏/iu;
+const LAUGH_TRIPLE = /(?<![\p{L}\d])(?:(?:j[aeiou]){3,}|(?:ha){3,})/iu;
+// "dile a Ana que te lo mando mañana": somebody else's promise, relayed through the chat
+const RELAYED = /(?<![\p{L}\d])(?:dile|d[ií]selo|diles|d[ií]gale|d[ií]cele|av[ií]sale|tell\s+(?!me(?![\p{L}\d]))\p{L}+|let\s+(?!me(?![\p{L}\d]))\p{L}+\s+know)(?![\p{L}\d])/iu;
+// "me debes una": a figure of speech, not a debt
+const IDIOM_ONE = /^\s*(?:una|one)(?:\s+(?:y\s+grande|big(?:\s+time)?))?[\s.!¡?😉🙏\p{Extended_Pictographic}\p{Emoji_Modifier}]*$/iu;
+const LEAD_YES = /(?:^|[,.!;]\s*)si\s*(?=[,.!])/giu; // "si, te lo mando" (a yes written without its accent) is not an "if"
+const CONNECTOR = /[,;]|(?<![\p{L}\d])(?:y|e|and|pero|but|además|ademas|also|luego|then|después|despues)(?![\p{L}\d])/giu;
+const RELATIVE_DAY = /^(?:manana|tomorrow|hoy|today|esta\s+noche|tonight|pasado\s+manana|day\s+after)/;
 
 // ------------------------------------------------------------------ time words --
 
@@ -143,7 +153,10 @@ const TIME_RULES = [
   { rx: rx(String.raw`(?<![\d/:.-])\d{1,2}/\d{1,2}(?:/\d{2,4})?(?![\d/:])`), day: (m, base) => parseDue(m[0], { today: base }) },
   { rx: rx(`${L}(?:el|para el|antes del|hasta el|dia|el dia|by the|before the|on the)\\s+(\\d{1,2})(?:st|nd|rd|th)?(?![\\d:/h]|[.,]\\d|\\s*(?:de|of|euros?|eur|€|%|\\$|horas?|h)\\b)`),
     day: (m, base) => (Number(m[1]) >= 1 && Number(m[1]) <= 31 ? parseDue(`el ${m[1]}`, { today: base }) : null) },
-  { rx: rx(`${L}(?:(?:el|este|proximo|el proximo|este proximo|pasado|next|this|on|by|before|until|antes del|hasta el|para el)\\s+)?(${WD})${R}`),
+  { rx: rx(`${L}(?:(?:el|este|proximo|el proximo|este proximo|last|next|this|on|by|before|until|antes del|hasta el|para el)\\s+)?(${WD})${R}`),
+    // "la cena del sábado", "el sábado pasado", "last Friday": a day that is mentioned, not a deadline
+    skip: (m, f) => /^last(?![\p{L}\d])/u.test(m[0]) || /^\s+(?:pasado|anterior|ago)(?![\p{L}\d])/u.test(f.slice(m.index + m[0].length))
+      || /(?:^|\s)(?:de|del)\s+(?:(?:el|la|este|esta)\s+)?$/.test(f.slice(0, m.index)) || (m[0] === m[1] && /(?:^|\s)(?:el\s+)?pasado\s+$/.test(f.slice(0, m.index))),
     day: (m, base) => parseDue(m[1], { today: base }) },
   { rx: rx(`${L}pasado\\s+manana${R}|${L}day\\s+after\\s+tomorrow${R}`), day: (m, base) => addDays(base, 2) },
   { rx: rx(`(?<!${L}(?:por la|de la|en la|esta|a la|la)\\s)${L}manana${R}|${L}tomorrow${R}`), day: (m, base) => addDays(base, 1) },
@@ -160,22 +173,33 @@ function findTime(sentence, base, from = 0) {
   const f = fold(sentence);
   const found = [];
   for (const rule of TIME_RULES) {
-    const m = rule.rx.exec(f);
-    if (!m) continue;
-    let due = null;
-    try { due = rule.day(m, base) || null; } catch { due = null; }
-    if (due && due < base) due = null;
-    if (!due) continue;
-    found.push({ index: m.index, end: m.index + m[0].length, text: sentence.slice(m.index, m.index + m[0].length).trim(), due });
+    for (const m of execAll(rule.rx, f)) {
+      if (rule.skip && rule.skip(m, f)) continue;
+      let due = null;
+      try { due = rule.day(m, base) || null; } catch { due = null; }
+      if (due && due < base) due = null;
+      if (!due) continue;
+      found.push({ index: m.index, end: m.index + m[0].length, text: sentence.slice(m.index, m.index + m[0].length).trim(), due });
+      break;
+    }
   }
   if (!found.length) return null;
   found.sort((a, b) => a.index - b.index);
-  return found.find((t) => t.index >= from) || found[0];
+  return found.find((x) => x.index >= from) || found[0];
 }
 
 // ------------------------------------------------------------------ extraction --
 
 const squash = (text) => String(text || "").replace(/\s+/g, " ").trim();
+
+/** Every match of `re` in `text` (the regex may or may not carry the g flag). */
+function execAll(re, text) {
+  const g = new RegExp(re.source, re.flags.includes("g") ? re.flags : `${re.flags}g`);
+  const out = [];
+  let m;
+  while ((m = g.exec(text))) { out.push(m); if (m[0] === "") g.lastIndex++; }
+  return out;
+}
 
 /** The sentences of one message that can hold a promise: no questions, no quoted or forwarded text. */
 function sentencesOf(text) {
@@ -195,14 +219,21 @@ function clauseStart(sentence, index) {
   return Math.max(head.lastIndexOf(","), head.lastIndexOf(":"), head.lastIndexOf(";"), head.lastIndexOf(" - ")) + 1;
 }
 
+// What the words leave of the action once the verb, the day and the filler are taken out.
+const LAUGH_G = /(?<![\p{L}\d])(?:(?:j[aeiou]){2,}j?|(?:ha){2,}h?|(?:he){2,}|lol+|xd+)(?![\p{L}\d])/giu;
+const cleanAction = (text) => squash(String(text || "")
+  .replace(/[\p{Extended_Pictographic}\p{Emoji_Modifier}‍️]/gu, " ")
+  .replace(LAUGH_G, " "))
+  .replace(/^[\s,.;:!¡-]+|[\s,.;:!¡-]+$/g, "");
+
 function restAfter(sentence, end, time) {
   let rest = sentence.slice(end);
   if (time && time.index >= end) rest = sentence.slice(end, time.index) + " " + sentence.slice(time.end);
-  rest = squash(rest)
+  rest = cleanAction(rest)
     .replace(/^(?:[,:;-]\s*)+/, "")
     .replace(/^(?:a\s+ti\s+)?(?:que\s+)?/i, "")
     .replace(/^(?:you|him|her|them|us)(?:\s+|$)/i, "")
-    .replace(/(?:^|[\s,])\s*(?:vale|ok|okey|okay|por\s+favor|please|sin\s+falta|tranquilo|tranqui|jaja+|ja+ja+|gracias)(?![\p{L}\d]).*$/iu, "")
+    .replace(/(?:^|[\s,])\s*(?:vale|ok|okey|okay|por\s+favor|please|sin\s+falta|tranquilo|tranqui|gracias)(?![\p{L}\d]).*$/iu, "")
     .replace(/[\p{Extended_Pictographic}\s.,;:!¡-]+$/u, "")
     .replace(/(?:\s+(?:para|antes\s+de|before|by|on|el|en|a|de|hasta|until|y|and))+$/i, "")
     .trim();
@@ -211,35 +242,51 @@ function restAfter(sentence, end, time) {
 
 const cap = (text) => (text ? text[0].toUpperCase() + text.slice(1) : text);
 
-const FIRST = (matches) => matches.filter(Boolean).sort((a, b) => a.index - b.index)[0] || null;
+// The verb of a promise in plain Spanish, for what leaves this app (never the words of the message).
+const LABEL_EN = {
+  send: "Mandar", bring: "Traer", pay: "Pagar", give: "Dar", forward: "Reenviar", return: "Devolver", book: "Reservar", buy: "Comprar",
+  fix: "Arreglar", share: "Compartir", drop: "Dejar", prepare: "Preparar", finish: "Terminar", review: "Revisar", do: "Hacer", make: "Hacer",
+  upload: "Subir", transfer: "Transferir", reserve: "Reservar", order: "Pedir", deliver: "Entregar", ship: "Enviar", pick: "Recoger",
+  call: "Llamar", text: "Escribir", email: "Escribir", message: "Escribir", write: "Escribir", ping: "Avisar", let: "Avisar", get: "Gestionar", check: "Revisar",
+};
+const NAMED_ACTIONS = new Set(["Llamar", "Avisar", "Confirmar", "Contestar", "Escribir"]);
+const MONEY_VERBS = new Set(["Pagar", "Devolver", "Pasar", "Mandar", "Transferir", "Ingresar", "Dar", "Entregar", "Enviar", "Pay", "Send", "Give", "Return", "Transfer"]);
 
-/** The promise or claim in one (lowercased) sentence, or null: { role, label?, weak, index, end, debt? }. */
-function findPattern(sentence) {
+/** «Mandar algo», «Saldar una deuda», «Llamar»: the commitment named without quoting anybody. */
+export function actionName(hit) {
+  if (hit.debt) return "Saldar una deuda";
+  const raw = hit.label ? (LABEL_EN[String(hit.label).toLowerCase()] || hit.label) : "";
+  if (!raw) return "Cumplir lo prometido";
+  return NAMED_ACTIONS.has(raw) ? raw : `${raw} algo`;
+}
+
+/** Every promise or claim in one sentence, in order: [{ role, label?, weak, index, end, debt? }]. */
+function findPatterns(sentence) {
   const s = sentence.toLowerCase();
   const f = fold(s);
   const hits = [];
-  const add = (m, info) => { if (m) hits.push({ index: m.index, end: m.index + m[0].length, ...info(m) }); };
+  const add = (re, str, info) => { for (const m of execAll(re, str)) hits.push({ index: m.index, end: m.index + m[0].length, ...info(m) }); };
 
   // promises: the speaker binds themselves
-  add(P_TE.exec(s), (m) => ({ role: "promise", ...ES_FORM_TO_VERB.get(m[1]) }));
-  add(P_IRA_A.exec(f), (m) => ({ role: "promise", label: cap(m[1]), weak: WEAK_INF.has(m[1]) }));
-  add(P_IRA_B.exec(f), (m) => ({ role: "promise", label: cap(m[1]), weak: WEAK_INF.has(m[1]) }));
-  add(P_DEBO.exec(s), () => ({ role: "promise", debt: true, weak: false }));
-  add(P_TENGO.exec(f), (m) => ({ role: "promise", label: cap(m[1]), weak: WEAK_INF.has(m[1]) }));
-  add(P_ENCARGO.exec(s), () => ({ role: "promise", label: "Encargarme de", weak: false }));
-  add(P_YO.exec(s), () => ({ role: "promise", label: "", weak: false, bare: true }));
-  add(P_PROMETO.exec(s), () => ({ role: "promise", label: "", weak: false, minRest: 8 }));
-  add(P_EN.exec(s), (m) => ({ role: "promise", label: cap(m[1]), weak: EN_WEAK.includes(m[1]) }));
-  add(P_EN_OWE.exec(s), () => ({ role: "promise", debt: true, weak: false }));
+  add(P_TE, s, (m) => ({ role: "promise", ...ES_FORM_TO_VERB.get(m[1]) }));
+  add(P_IRA_A, f, (m) => ({ role: "promise", label: cap(m[1]), weak: WEAK_INF.has(m[1]) }));
+  add(P_IRA_B, f, (m) => ({ role: "promise", label: cap(m[1]), weak: WEAK_INF.has(m[1]) }));
+  add(P_DEBO, s, () => ({ role: "promise", debt: true, weak: false }));
+  add(P_TENGO, f, (m) => ({ role: "promise", label: cap(m[1]), weak: WEAK_INF.has(m[1]) }));
+  add(P_ENCARGO, s, () => ({ role: "promise", label: "Encargarme de", weak: false }));
+  add(P_YO, s, () => ({ role: "promise", label: "", weak: false, bare: true }));
+  add(P_PROMETO, s, () => ({ role: "promise", label: "", weak: false, minRest: 8 }));
+  add(P_EN, s, (m) => ({ role: "promise", label: cap(m[1]), weak: EN_WEAK.includes(m[1]) }));
+  add(P_EN_OWE, s, () => ({ role: "promise", debt: true, weak: false }));
 
   // claims: the person addressed is bound to the speaker
-  add(C_DEBES.exec(f), () => ({ role: "claim", debt: true, weak: false }));
-  add(C_EN_OWE.exec(s), () => ({ role: "claim", debt: true, weak: false }));
+  add(C_DEBES, f, () => ({ role: "claim", debt: true, weak: false }));
+  add(C_EN_OWE, s, () => ({ role: "claim", debt: true, weak: false }));
   for (const re of [C_TIENES_A, C_TIENES_B, C_TIENES_C, C_VAS_A, C_VAS_B, C_OLVIDES]) {
-    add(re.exec(f), (m) => ({ role: "claim", label: cap(m[1]), weak: WEAK_INF.has(m[1]) }));
+    add(re, f, (m) => ({ role: "claim", label: cap(m[1]), weak: WEAK_INF.has(m[1]) }));
   }
-  for (const re of [C_EN_NEED, C_EN_WILL, C_EN_FORGET]) add(re.exec(s), (m) => ({ role: "claim", label: cap(m[1]), weak: EN_WEAK.includes(m[1]) }));
-  add(C_EN_PROMISED.exec(s), () => ({ role: "claim", label: "", weak: false, minRest: 6 }));
+  for (const re of [C_EN_NEED, C_EN_WILL, C_EN_FORGET]) add(re, s, (m) => ({ role: "claim", label: cap(m[1]), weak: EN_WEAK.includes(m[1]) }));
+  add(C_EN_PROMISED, s, () => ({ role: "claim", label: "", weak: false, minRest: 6 }));
   const marker = C_MARKER.exec(f);
   if (marker && /(?<![\p{L}\d])me(?![\p{L}\d])/u.test(f.slice(marker.index + marker[0].length))) {
     hits.push({ index: marker.index, end: marker.index + marker[0].length, role: "claim", label: "", weak: false, whole: true });
@@ -255,47 +302,114 @@ function findPattern(sentence) {
     }
   }
   // "prometo que te lo devuelvo": the verb says more than the promise word
-  const specific = hits.filter((h) => !h.minRest || h.role !== "promise");
-  return FIRST(specific.length ? specific : hits);
+  const specific = hits.filter((h) => !(h.minRest && h.role === "promise"));
+  const kept = specific.length ? hits.filter((h) => !(h.minRest && h.role === "promise" && specific.some((o) => o.index >= h.index))) : hits;
+  kept.sort((a, b) => a.index - b.index || a.end - b.end);
+  const out = [];
+  for (const h of kept) if (!out.length || h.index >= out[out.length - 1].end) out.push(h); // overlapping matches are one
+  return out;
 }
 
 /**
- * The commitments in one message: [{ direction, role, text, quote, due, due_text }]. `sender` is "me" or "them"; `at` the time the
- * message was written (ISO or ms): relative days ("el lunes", "mañana") count from that day.
+ * Cut a sentence into one clause per promise: "te mando el informe el lunes y te llamo el martes" is two. A clause begins after
+ * the last comma, "y", "and" or "pero" before its verb and ends where the next promise's clause begins. Two verbs with no
+ * connector between them are one promise.
+ */
+function clausesOf(sentence, hits) {
+  const lower = sentence.toLowerCase();
+  const parts = [];
+  let prevEnd = 0;
+  for (const hit of hits) {
+    let start;
+    if (!parts.length) start = clauseStart(lower, hit.index);
+    else {
+      let last = null;
+      for (const m of execAll(CONNECTOR, lower.slice(prevEnd, hit.index))) last = m;
+      if (!last) continue;
+      start = prevEnd + last.index + last[0].length;
+      parts[parts.length - 1].end = prevEnd + last.index;
+    }
+    parts.push({ hit, start, end: sentence.length });
+    prevEnd = hit.end;
+  }
+  return parts;
+}
+
+/** The commitment in one clause (or null): the safety rules of the header apply to the whole clause, before and after the verb. */
+function fromClause(clause, hit, { base, sender, late }) {
+  const lower = clause.toLowerCase();
+  const around = `${lower.slice(0, hit.index)} ${lower.slice(hit.end)}`.replace(BENIGN_NEG, " ");
+  if (NEGATION.test(around) || CONDITIONAL.test(around) || HEDGE.test(around)) return null;
+  const before = lower.slice(0, hit.index);
+  if (RELAYED.test(before)) return null; // "dile a Ana que te lo mando mañana": the promise is not made to this chat
+  const after = lower.slice(hit.end);
+  // "no" right after the verb ("te debo no sé qué") or a negated object is not a promise either
+  if (/^\s*(?:nada|ning[uú]n|ninguna)(?![\p{L}\d])/iu.test(after)) return null;
+  if (COURTESY.test(after)) return null;
+  if (hit.debt && IDIOM_ONE.test(after)) return null; // "me debes una": a figure of speech
+  const time = findTime(clause, base, hit.end);
+  if (hit.weak && !time) return null;
+  let rest = restAfter(clause, hit.end, time);
+  if (hit.label === "Encargarme de") rest = rest.replace(/^de\s+/i, "");
+  if (hit.minRest && rest.length < hit.minRest) return null;
+  let action;
+  const asSaid = () => restAfter(clause, 0, null) || squash(clause); // the clause itself, without what came before the comma
+  if (hit.whole || hit.bare || (!rest && !hit.label)) action = asSaid();
+  else if (hit.debt) action = rest || asSaid();
+  else if (!rest) action = hit.weak ? hit.label : asSaid(); // "te llamo el martes" -> "Llamar"; "te lo mando" stays as said
+  else if (/^llegar(?![\p{L}\d])/iu.test(rest)) action = asSaid();
+  else action = hit.label ? `${hit.label} ${rest}` : rest;
+  action = cleanAction(action);
+  if (!action) return null;
+  const direction = hit.role === "promise" ? (sender === "me" ? "i_owe" : "owed_to_me") : (sender === "me" ? "owed_to_me" : "i_owe");
+  // «mañana» typed at 02:00 may be the same night or the day after: the day is left for the owner to confirm
+  const night = !!(time && late && RELATIVE_DAY.test(fold(time.text)));
+  return {
+    direction, role: hit.role, text: cap(action).slice(0, 200), quote: squash(clause).slice(0, 400),
+    due: time ? time.due : null, due_text: time ? time.text.slice(0, 120) : "", action: actionName(hit), night,
+    _debt: !!hit.debt, _verb: hit.label || "",
+  };
+}
+
+/**
+ * The commitments in one message: [{ direction, role, text, quote, due, due_text, action, night, doubtful }]. `sender` is "me" or
+ * "them"; `at` the time the message was written (ISO or ms): relative days ("el lunes", "mañana") count from that day.
+ * `action` is the commitment in plain words (never the message's own); `doubtful` marks irony; `night` a «mañana» written
+ * between 00:00 and 05:59.
  */
 export function extractCommitments(text, { sender = "them", at = Date.now() } = {}) {
-  const base = localDate(new Date(at).toISOString());
+  const when = new Date(at);
+  const base = localDate(when.toISOString());
+  const late = when.getHours() < 6;
+  const whole = String(text || "");
+  const doubtful = SARCASM.test(whole) || (LAUGH_TRIPLE.test(whole) && /sin\s+falta|promise|prometo|lo\s+juro|swear/i.test(whole));
   const out = [];
   for (const sentence of sentencesOf(text)) {
-    if (REPORTED.test(sentence) || HEDGE.test(sentence)) continue;
-    const hit = findPattern(sentence);
-    if (!hit) continue;
-    const lower = sentence.toLowerCase();
-    const start = clauseStart(lower, hit.index);
-    const clause = lower.slice(start, hit.index).replace(BENIGN_NEG, " ");
-    if (NEGATION.test(clause) || CONDITIONAL.test(clause)) continue;
-    // "no" right after the verb ("te debo no sé qué") or a negated object is not a promise either
-    if (/^\s*(?:nada|ning[uú]n|ninguna)(?![\p{L}\d])/iu.test(lower.slice(hit.end))) continue;
-    if (COURTESY.test(lower.slice(hit.end))) continue;
-    const time = findTime(sentence, base, hit.end);
-    if (hit.weak && !time) continue;
-    let rest = restAfter(sentence, hit.end, time);
-    if (hit.label === "Encargarme de") rest = rest.replace(/^de\s+/i, "");
-    if (hit.minRest && rest.length < hit.minRest) continue;
-    let action;
-    const asSaid = () => restAfter(sentence, start, null) || squash(sentence); // the clause itself, without what came before the comma
-    if (hit.whole || hit.bare || !rest && !hit.label) action = asSaid();
-    else if (hit.debt) action = rest || asSaid();
-    else if (!rest) action = hit.weak ? hit.label : asSaid(); // "te llamo el martes" -> "Llamar"; "te lo mando" stays as said
-    else if (/^llegar(?![\p{L}\d])/iu.test(rest)) action = asSaid();
-    else action = hit.label ? `${hit.label} ${rest}` : rest;
-    const direction = hit.role === "promise" ? (sender === "me" ? "i_owe" : "owed_to_me") : (sender === "me" ? "owed_to_me" : "i_owe");
-    out.push({
-      direction, role: hit.role, text: cap(action).slice(0, 200), quote: squash(sentence).slice(0, 400),
-      due: time ? time.due : null, due_text: time ? time.text.slice(0, 120) : "",
-    });
+    if (REPORTED.test(sentence)) continue;
+    const hits = findPatterns(sentence);
+    if (!hits.length) continue;
+    // an "if" or a doubt before the first promise covers the whole sentence ("si puedes, te lo mando y te llamo")
+    const lead = sentence.slice(0, hits[0].index).toLowerCase().replace(LEAD_YES, " ");
+    if (CONDITIONAL.test(lead) || HEDGE.test(lead)) continue;
+    const parts = clausesOf(sentence, hits);
+    const found = [];
+    for (const { hit, start, end } of parts) {
+      const raw = sentence.slice(start, end);
+      const lead = raw.length - raw.trimStart().length; // fold() trims: the offsets must be those of the trimmed clause
+      const c = fromClause(raw.trim(), { ...hit, index: hit.index - start - lead, end: hit.end - start - lead }, { base, sender, late });
+      if (!c) continue;
+      if (parts.length === 1) c.quote = squash(sentence).slice(0, 400);
+      const prev = found[found.length - 1];
+      // "me debes 20 euros, acuérdate de pasármelos antes del 15": the second clause says how and when, it is the same debt
+      if (prev && prev._debt && !c._debt && prev.role === c.role && MONEY_VERBS.has(c._verb)) {
+        if (!prev.due && c.due) { prev.due = c.due; prev.due_text = c.due_text; prev.night = prev.night || c.night; }
+        continue;
+      }
+      found.push(c);
+    }
+    out.push(...found);
   }
-  return out;
+  return out.map(({ _debt, _verb, ...c }) => ({ ...c, doubtful }));
 }
 
 // ------------------------------------------------------------------ batches --
@@ -343,7 +457,8 @@ function matchContact(m, cache) {
   }
   if (out.state !== "person" && name) {
     const named = commitments.resolveName(name);
-    if (named.state === "person") out = { ...out, state: "person", person: named.person };
+    // a number that is in nobody's card, with a name that fits one person: it may be someone else with the same name, so it is asked
+    if (named.state === "person") out = phone ? { ...out, state: "phone_unknown", candidates: [named.person] } : { ...out, state: "person", person: named.person };
     else if (named.state === "ambiguous") out = { ...out, state: "ambiguous", candidates: named.candidates };
   }
   cache.set(key, out);
@@ -374,7 +489,7 @@ const REFINE_SCHEMA = {
  * Optional: the local model (through the hub) reads the messages the rules found nothing in. What it finds only goes to the review
  * queue, with the quote verified against the message; nothing is recorded without a yes.
  */
-async function refine(unhit, { chat = family.chat, today }) {
+async function refine(unhit, { chat = family.chat, today, done = new Set() }) {
   if (!unhit.length) return { status: "nothing_to_read", proposals: 0 };
   const byChat = new Map();
   for (const item of unhit.slice(0, REFINE_MAX_MESSAGES)) {
@@ -392,6 +507,7 @@ async function refine(unhit, { chat = family.chat, today }) {
     });
     if (!reply.ok) { status = reply.error === "no_model" ? "no_model" : reply.error === "hub_down" ? "hub_down" : "error"; break; }
     const list = reply.json && Array.isArray(reply.json.commitments) ? reply.json.commitments : [];
+    for (const item of items) done.add(item); // the model answered for these: they do not need reading again
     for (const entry of list.slice(0, 20)) {
       const item = items[Number(entry?.message)];
       const action = squash(entry?.action);
@@ -401,7 +517,7 @@ async function refine(unhit, { chat = family.chat, today }) {
       const due = dueText ? (findTime(dueText, localDate(item.atIso))?.due ?? null) : null;
       const review = commitments.queueReview({
         kind: "text", reason: "model_whatsapp",
-        proposal: { direction: entry.direction, text: action.slice(0, 200), due, due_text: dueText.slice(0, 120), person_name_raw: item.contact.name || "",
+        proposal: { direction: entry.direction, text: action.slice(0, 200), due, due_text: dueText.slice(0, 120), person_name_raw: item.contact.name || "", phone: item.contact.phone || "",
           source: { kind: "whatsapp", ref: item.ref, quote: quote.slice(0, 400), at: item.atIso } },
         candidates: item.contact.state === "person" ? [item.contact.person] : item.contact.candidates,
         dedupe: commitments.dedupeKey("whatsapp", item.ref, action),
@@ -445,12 +561,16 @@ export async function commitmentsFromMessages(input, { today = todayLocal(), cha
     result.found += found.length;
     for (const c of found) {
       const key = commitments.dedupeKey("whatsapp", ref, c.text);
-      if (contact.state === "ambiguous") {
+      // what is not clear goes to the owner: a name that fits several people, a number nobody owns, irony, a «mañana» typed at night
+      const reason = contact.state === "ambiguous" ? "ambiguous" : contact.state === "phone_unknown" ? "phone_unknown"
+        : c.doubtful ? "doubtful" : c.night ? "late_night" : null;
+      if (reason) {
+        const candidates = contact.state === "person" && contact.person ? [contact.person] : contact.candidates;
         const review = commitments.queueReview({
-          kind: "text", reason: "ambiguous",
-          proposal: { direction: c.direction, text: c.text, due: c.due, due_text: c.due_text, person_name_raw: contact.name.slice(0, 120),
+          kind: "text", reason,
+          proposal: { direction: c.direction, text: c.text, due: c.due, due_text: c.due_text, person_name_raw: contact.name.slice(0, 120), phone: contact.phone || "", action_label: c.action,
             source: { kind: "whatsapp", ref, quote: c.quote, at: atIso } },
-          candidates: contact.candidates, dedupe: key,
+          candidates, dedupe: key,
         });
         if (review) { result.queued++; result.review.push(review.id); } else result.duplicates++;
         continue;
@@ -458,21 +578,25 @@ export async function commitmentsFromMessages(input, { today = todayLocal(), cha
       const added = commitments.addCommitment({
         direction: c.direction, person_id: contact.person ? contact.person.id : null, person_name_raw: contact.person ? "" : contact.name.slice(0, 120),
         text: c.text, due: c.due, due_text: c.due_text, source_kind: "whatsapp", source_ref: ref, source_quote: c.quote, source_at: atIso,
-      }, { dedupe: key, today, emit, resolve: false });
+      }, { dedupe: key, today, emit, resolve: false, eventText: c.action });
       if (!added.created) { result.duplicates++; continue; }
       result.created++;
       if (contact.person) result.linked++; else result.unlinked++;
       result.commitments.push({
-        id: added.commitment.id, direction: added.commitment.direction, text: added.commitment.text, due: added.commitment.due,
+        id: added.commitment.id, direction: added.commitment.direction, text: added.commitment.text, action: c.action, due: added.commitment.due,
         person_id: added.commitment.person_id, person_name: added.commitment.person_name,
       });
     }
-    if (!found.length && wantRefine) unhit.push({ chatKey, ref, sender, text, atIso, contact });
+    // with the model on, the messages the rules found nothing in wait for its answer before they count as read
+    if (!found.length && wantRefine) { unhit.push({ chatKey, ref, sender, text, atIso, contact, ledgerKey }); continue; }
     markSeen(ledgerKey);
   }
   if (wantRefine) {
-    try { result.refine = await refine(unhit, { chat, today }); } catch (error) { result.refine = { status: "error", detail: String(error.message || error).slice(0, 200) }; }
+    const done = new Set();
+    try { result.refine = await refine(unhit, { chat, today, done }); } catch (error) { result.refine = { status: "error", detail: String(error.message || error).slice(0, 200) }; }
     result.queued += result.refine.proposals || 0;
+    for (const item of unhit) if (done.has(item)) markSeen(item.ledgerKey); // hub down or no model: they are read again next time
+    result.retry = unhit.length - done.size;
   }
   return result;
 }
