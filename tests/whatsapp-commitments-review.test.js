@@ -228,3 +228,16 @@ test("the event bus never carries the words of a message: sentinel strings in th
   // the stored commitment keeps its sentence (it is the owner's own list)
   assert.ok(owned.some((c) => /SENTINEL-ALFA/.test(c.source.quote)));
 });
+
+test("a hidden-id chat identified only by a nickname never links by name on its own", async () => {
+  const out = await commitmentsFromMessages({ messages: [
+    msg("l1", "99887766554433@lid", "Cecilia Marín", "them", "Te mando el informe el viernes", ts(7), { name_unverified: true }),
+  ] });
+  assert.deepEqual([out.created, out.queued], [0, 1], JSON.stringify(out));
+  const item = commitments.listReview().find((r) => r.reason === "phone_unknown" && r.proposal.source.ref.startsWith("99887766554433@lid"));
+  assert.deepEqual(item.candidates.map((c) => c.id), [ceci.id]);
+  assert.equal(item.proposal.phone, "");
+  const done = commitments.resolveReview(item.id, { action: "accept", person_id: ceci.id });
+  assert.equal(done.commitment.person_id, ceci.id);
+  assert.equal(aliases.listAliases(ceci.id).length, 0, "there is no number to remember");
+});
