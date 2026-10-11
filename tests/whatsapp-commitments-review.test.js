@@ -241,3 +241,26 @@ test("a hidden-id chat identified only by a nickname never links by name on its 
   assert.equal(done.commitment.person_id, ceci.id);
   assert.equal(aliases.listAliases(ceci.id).length, 0, "there is no number to remember");
 });
+
+test("«si o si» is an emphatic yes and «no matter what» a promise, not a condition or a negation (a real condition beside them still cancels)", () => {
+  for (const [text, sender] of [
+    ["Te lo mando el lunes si o si", "me"],
+    ["Si o si te lo mando el lunes", "me"],
+    ["S\u00ed o s\u00ed te lo mando ma\u00f1ana", "me"],
+    ["Te lo mando ma\u00f1ana s\u00ed o s\u00ed, no te preocupes", "me"],
+    ["I'll send it Friday no matter what", "me"],
+    ["No matter what, I'll send it Friday", "me"],
+    ["Te lo mando el lunes si o si", "them"],
+  ]) assert.equal(x(text, sender).length, 1, `${sender}: ${text}`);
+  assert.equal(x("Te lo mando el lunes si o si").at(0).direction, "i_owe");
+  for (const text of [
+    "Te lo mando el lunes si o si, si puedo",
+    "Te lo mando el lunes si o si, aunque no creo",
+    "I'll send it Friday no matter what, if I can",
+    "I'll send it Friday no matter what, maybe",
+    "Si puedo te lo mando el lunes si o si",
+  ]) assert.deepEqual(x(text), [], text);
+  // the ordinary conditional is still a conditional, and a plain «no» is still a negation
+  assert.deepEqual(x("Si quieres te lo mando el lunes"), []);
+  assert.deepEqual(x("No te lo mando el lunes"), []);
+});

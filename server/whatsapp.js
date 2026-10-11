@@ -119,7 +119,9 @@ const C_EN_PROMISED = rx(`${L}you\\s+promised\\s+(?:me|to)${R}`);
 
 // "te mando un abrazo", "te doy las gracias": courtesy, not a promise
 const COURTESY = rx(String.raw`^\s*(?:(?:un|una|unos|unas|mil|muchos|muchas|mis|mi|el|la|las)\s+)*(?:abrazos?|besos?|besitos?|saludos?|recuerdos?|cari[ñn]os?|gracias|[áa]nimos?|fuerzas?|mimos?|enhorabuena|palabra|raz[óo]n|consejo|bendiciones|suerte|apoyo)`);
-const BENIGN_NEG = /\bno\s+(?:te\s+preocupes|pasa\s+nada|hay\s+(?:problema|prisa)|problem|worries)\b|\bno\s+problem\b|\bno\s+worries\b|\bdon'?t\s+worry\b|\bno\s+te\s+agobies\b|\bno\s+te\s+rayes\b|\bsin\s+problema\b/gi;
+const BENIGN_NEG = /\bno\s+(?:te\s+preocupes|pasa\s+nada|hay\s+(?:problema|prisa)|problem|worries)\b|\bno\s+problem\b|\bno\s+worries\b|\bdon'?t\s+worry\b|\bno\s+te\s+agobies\b|\bno\s+te\s+rayes\b|\bsin\s+problema\b|\bno\s+matter\s+(?:what|how|where)\b/gi;
+// "te lo mando el lunes si o si", "sí o sí": an emphatic yes, the opposite of a condition (a real "si puedo" next to it still cancels)
+const EMPHATIC = /(?<![\p{L}\d])s[ií]\s+o\s+s[ií](?![\p{L}\d])/giu;
 const NEGATION = /(?<![\p{L}\d])(?:no|nunca|jam[aá]s|tampoco|ni|not|never|won't|wont|can't|cant|don't|dont|couldn't|shouldn't)(?![\p{L}\d])|n't(?![\p{L}\d])/iu;
 const CONDITIONAL = /(?<![\p{L}\d])(?:si|if|cuando|when|siempre\s+que|en\s+caso\s+de|unless|a\s+menos\s+que|salvo\s+que|a\s+no\s+ser\s+que|aunque|although|though|as\s+long\s+as|provided|a\s+ver\s+si|depende|depending|dependiendo)(?![\p{L}\d])/iu;
 const HEDGE = /(?<![\p{L}\d])(?:quiz[aá]s?|tal\s+vez|a\s+lo\s+mejor|puede\s+que|podr[ií]a|ojal[aá]|maybe|perhaps|might|igual(?!\s+que)|probablemente|probably|supongo(?:\s+que)?|creo\s+que|no\s+creo|no\s+s[eé]\s+si|i\s+think|i\s+guess|i\s+suppose|not\s+sure|no\s+estoy\s+seguro|intentar[eé]|tratar[eé]|voy\s+a\s+intentar|voy\s+a\s+tratar|i'll\s+try|i\s+will\s+try|if\s+possible|con\s+suerte|hopefully|weather\s+permitting)(?![\p{L}\d])/iu;
@@ -338,7 +340,7 @@ function clausesOf(sentence, hits) {
 /** The commitment in one clause (or null): the safety rules of the header apply to the whole clause, before and after the verb. */
 function fromClause(clause, hit, { base, sender, late }) {
   const lower = clause.toLowerCase();
-  const around = `${lower.slice(0, hit.index)} ${lower.slice(hit.end)}`.replace(BENIGN_NEG, " ");
+  const around = `${lower.slice(0, hit.index)} ${lower.slice(hit.end)}`.replace(BENIGN_NEG, " ").replace(EMPHATIC, " ");
   if (NEGATION.test(around) || CONDITIONAL.test(around) || HEDGE.test(around)) return null;
   const before = lower.slice(0, hit.index);
   if (RELAYED.test(before)) return null; // "dile a Ana que te lo mando mañana": the promise is not made to this chat
@@ -389,7 +391,7 @@ export function extractCommitments(text, { sender = "them", at = Date.now() } = 
     const hits = findPatterns(sentence);
     if (!hits.length) continue;
     // an "if" or a doubt before the first promise covers the whole sentence ("si puedes, te lo mando y te llamo")
-    const lead = sentence.slice(0, hits[0].index).toLowerCase().replace(LEAD_YES, " ");
+    const lead = sentence.slice(0, hits[0].index).toLowerCase().replace(LEAD_YES, " ").replace(EMPHATIC, " ");
     if (CONDITIONAL.test(lead) || HEDGE.test(lead)) continue;
     const parts = clausesOf(sentence, hits);
     const found = [];
