@@ -166,14 +166,18 @@ export default function Persona({ id }) {
   };
   const saveSummary = async () => {
     if (summaryDraft === null || summaryDraft === person.summary) return setSummaryDraft(null);
-    await run(() => api.people.update(id, { summary: summaryDraft }), "Resumen guardado.");
-    setSummaryDraft(null);
+    const sent = summaryDraft;
+    const out = await run(() => api.people.update(id, { summary: sent }), "Resumen guardado.");
+    if (!out) return;
+    setSummaryDraft((current) => current === sent ? null : current);
     load();
   };
   const saveNotes = async () => {
     if (notesDraft === null || notesDraft === person.notes) return setNotesDraft(null);
-    await run(() => api.people.update(id, { notes: notesDraft }), "Notas guardadas.");
-    setNotesDraft(null);
+    const sent = notesDraft;
+    const out = await run(() => api.people.update(id, { notes: sent }), "Notas guardadas.");
+    if (!out) return;
+    setNotesDraft((current) => current === sent ? null : current);
     load();
   };
   const toggleArchive = async () => {
