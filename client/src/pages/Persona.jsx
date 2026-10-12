@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { changedFields, rebaseForm } from "../copilot-context.js";
+import { useCopilotContext, useCopilotRefresh } from "../copilot-hooks.js";
 import { api } from "../api.js";
 import { useApp } from "../App.jsx";
 import { Page, Section, Field, useAction, ConfirmDialog } from "../components/ui.jsx";
@@ -7,19 +9,32 @@ import { FactsSection, AliasesSection, InteractionsSection, RemindersSection, Gi
 import { daysAgoLabel, birthdayLabel } from "../format.js";
 
 function HeaderForm({ person, onSave, onCancel, busy }) {
-  const [form, setForm] = useState({
-    name: person.name,
-    nickname: person.nickname,
-    circles: person.circles.join(", "),
-    birthday: person.birthday || "",
-    location: person.location,
-    how_met: person.how_met,
-    contact_every_days: person.contact_every_days ?? "",
+  const fromPerson = (p) => ({
+    name: p.name,
+    nickname: p.nickname,
+    circles: p.circles.join(", "),
+    birthday: p.birthday || "",
+    location: p.location,
+    how_met: p.how_met,
+    contact_every_days: p.contact_every_days ?? "",
   });
+  const [form, setForm] = useState(() => fromPerson(person));
+  const [base, setBase] = useState(() => fromPerson(person));   // only the fields the user changes are saved
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  // The record reloaded under the form (the assistant changed it): untouched fields follow it, typed ones stay.
+  const personKey = JSON.stringify(fromPerson(person));
+  useEffect(() => {
+    const next = fromPerson(person);
+    if (JSON.stringify(next) === JSON.stringify(base)) return;
+    setForm((f) => rebaseForm(base, next, f));
+    setBase(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personKey]);
+  const changed = changedFields(base, form);
+  useCopilotContext(() => ({ editors: [{ kind: "person-form", object_id: person.id, dirty: Object.keys(changed).length > 0, fields: form, changed }] }));
   const submit = (e) => {
     e.preventDefault();
-    onSave({
+    const payload = {
       name: form.name,
       nickname: form.nickname,
       circles: form.circles.split(",").map((c) => c.trim()).filter(Boolean),
@@ -27,7 +42,8 @@ function HeaderForm({ person, onSave, onCancel, busy }) {
       location: form.location,
       how_met: form.how_met,
       contact_every_days: form.contact_every_days === "" ? null : Number(form.contact_every_days),
-    });
+    };
+    onSave(Object.fromEntries(Object.entries(payload).filter(([k]) => k in changed)));
   };
   return (
     <form onSubmit={submit} className="panel grid gap-3 sm:grid-cols-2">
@@ -50,6 +66,7 @@ function MergePanel({ person, onDone, notify }) {
   const [q, setQ] = useState("");
   const [candidates, setCandidates] = useState([]);
   const [run, busy] = useAction(notify);
+  useCopilotContext(() => ({ editors: [{ kind: "person-merge", object_id: person.id, dirty: q.trim() !== "", fields: { search: q } }] }));
   const search = async (value) => {
     setQ(value);
     if (!value.trim()) return setCandidates([]);
@@ -135,6 +152,11 @@ export default function Persona({ id }) {
     }
   }, [id, notify]);
   useEffect(() => { load(); }, [load]);
+  useCopilotRefresh(() => { load(); });
+  useCopilotContext(() => ({ editors: [
+    ...(person && summaryDraft !== null ? [{ kind: "person-summary", object_id: person.id, dirty: summaryDraft !== person.summary, fields: { summary: summaryDraft } }] : []),
+    ...(person && notesDraft !== null ? [{ kind: "person-notes", object_id: person.id, dirty: notesDraft !== person.notes, fields: { notes: notesDraft } }] : []),
+  ] }));
 
   if (!person) return <p className="help p-8">Cargando…</p>;
 

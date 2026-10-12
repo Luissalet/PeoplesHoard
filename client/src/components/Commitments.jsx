@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { api } from "../api.js";
 import { Field, useAction } from "./ui.jsx";
 import { commitmentDue, dateTimeLabel, DIRECTION_CHIP, DIRECTION_LABELS, SOURCE_LABELS } from "../format.js";
+import { useCopilotContext, useCopilotRefresh } from "../copilot-hooks.js";
 
 /** The WhatsApp speech bubble, in the colour of the chip it sits in. */
 export function WhatsAppIcon({ size = 11 }) {
@@ -24,6 +25,7 @@ export function CommitmentItem({ c, showPerson = true, onChange, notify, busy })
   const [personId, setPersonId] = useState(c.person_id || "");
   const [everyone, setEveryone] = useState([]);
   useEffect(() => { if (moving) loadPeople().then(setEveryone); }, [moving]);
+  useCopilotContext(() => ({ editors: moving ? [{ kind: "commitment-form", object_id: c.id, dirty: direction !== c.direction || personId !== (c.person_id || "") || (!!day && day !== (c.due || "")), fields: { direction, person_id: personId, due: day } }] : [] }));
   const open = c.status === "open";
   const apply = async (patch, ok) => { if (await run(() => api.commitments.update(c.id, patch), ok)) { setMoving(false); onChange(); } };
   const remove = async () => { if (await run(() => api.commitments.remove(c.id), "Compromiso borrado.")) onChange(); };
@@ -100,6 +102,7 @@ export function CommitmentForm({ person = null, people = [], onAdded, notify }) 
   const [form, setForm] = useState(blank);
   const [run, busy] = useAction(notify);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  useCopilotContext(() => ({ editors: form.text.trim() || form.due || form.due_text.trim() ? [{ kind: "commitment-new", object_id: null, ...(person ? { person_id: person.id } : {}), dirty: true, fields: form }] : [] }));
   const submit = async (e) => {
     e.preventDefault();
     if (!form.text.trim()) return;
@@ -141,6 +144,7 @@ export function PersonCommitments({ person, reload, notify }) {
     try { setList((await api.commitments.list({ person: person.id, status: "all" })).commitments); } catch (e) { notify({ kind: "error", text: e.message }); }
   };
   useEffect(() => { load(); }, [person.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useCopilotRefresh(() => { load(); });
   const changed = () => { load(); reload?.(); };
   if (!list) return <p className="help">Cargando…</p>;
   const open = list.filter((c) => c.status === "open");

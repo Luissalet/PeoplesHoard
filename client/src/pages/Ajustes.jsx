@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
 import { useApp } from "../App.jsx";
-import { Page, Section, useAction } from "../components/ui.jsx";
+import { Page, Section, Field, useAction } from "../components/ui.jsx";
+import { useCopilotContext, useCopilotRefresh } from "../copilot-hooks.js";
 
 const MAIL_STATUS = {
   never: "Aún no ha leído el correo.",
@@ -27,6 +28,8 @@ function HubSection({ notify }) {
     } catch (e) { notify({ kind: "error", text: e.message }); }
   };
   useEffect(() => { load(); }, []);
+  useCopilotRefresh(() => { load(); });
+  useCopilotContext(() => ({ editors: settings ? [{ kind: "settings-form", object_id: null, dirty: days !== String(settings.gift_days_before), fields: { gift_days_before: days } }] : [] }));
   const save = async (patch, message) => { if (await run(() => api.settings.save(patch), message)) load(); };
   const readNow = async () => {
     const out = await run(() => api.mailSync.run(), null);

@@ -68,6 +68,20 @@ Todo esto habla con el hub de Hoard Link y se queda quieto sin él; nunca se lee
 
 Los cumpleaños se guardan como `AAAA-MM-DD` (año conocido) o `--MM-DD` (año desconocido); la ventana de próximos eventos y el cálculo de la edad tratan bien el cruce de diciembre a enero y el 29 de febrero en años no bisiestos.
 
+## Copiloto de Faustus
+
+Todas las páginas tienen un botón flotante **Faustus** (abajo a la derecha) que abre el asistente de Faustus en un panel lateral. La conversación, el modelo, la memoria y las herramientas viven en Faustus: esta app solo retransmite el panel (`/api/copilot/*`) y no guarda historial. Necesita Faustus en marcha (`HOARD_FAUSTUS_URL`, por defecto `http://127.0.0.1:7000`); sin él, el botón avisa de que el copiloto no está disponible y el resto de la app sigue igual.
+
+Lo que cada turno le cuenta al asistente (`window.hoardCopilot.context()`, leído con la propia API de la app):
+
+- `view.page` (`people`, `person`, `agenda`, `commitments`, `settings`), la búsqueda y el círculo en Personas, la ventana de días en Agenda, los filtros de compromisos y cuántas propuestas esperan en Compromisos.
+- `active_objects`: en la ficha de una persona, la persona (círculos, cumpleaños, ubicación, resumen, recuentos), sus datos, recordatorios abiertos, compromisos abiertos e ideas de regalo; en Compromisos, la persona usada como filtro y el compromiso cuyo formulario de edición está abierto. Un formulario de alta, `#/personas/new` o un id desconocido no añaden objeto ni fallan.
+- `view.editor`: los campos escritos en el formulario abierto y cuáles han cambiado (los datos de la persona, los borradores de resumen y notas, un dato, alias, contacto, recordatorio, idea de regalo, compromiso o persona nuevos, la búsqueda de fusión, el acta o el texto pegados, los ajustes). Si hay varios formularios abiertos, van en `view.editors`.
+
+Cuando el asistente termina un turno, la página abierta recarga sus datos sin remontarse: el listado, la persona, sus compromisos y regalos, la agenda. Los formularios conservan lo que habías escrito. Al editar los datos de una persona se guardan **solo los campos que has cambiado**, de modo que un cambio que el asistente hiciera mientras tanto en otro campo no se pisa (el `PATCH` del backend fusiona).
+
+Se apaga con `HOARD_COPILOT=0` (sin rutas `/api/copilot/*` y sin botón). El cliente está en `client/src/copilot-context.js` (contexto y recarga) y `client/src/copilot-hooks.js` (lo que informa cada página y formulario).
+
 ## Conectar un asistente (MCP)
 
 `server/mcp.js` es un servidor MCP por stdio que reenvía cada llamada a la aplicación en marcha, de modo que solo un proceso abre la base de datos. Mantened la aplicación abierta mientras el asistente trabaja.

@@ -5,10 +5,12 @@ import React, { useCallback, useEffect, useState } from "react";
 import { api } from "../api.js";
 import { Field, useAction } from "./ui.jsx";
 import { CHANNELS, ALIAS_KINDS, REMINDER_KINDS, dateLabel, dateTimeLabel } from "../format.js";
+import { useCopilotContext, useCopilotRefresh } from "../copilot-hooks.js";
 
 export function FactsSection({ person, reload, notify }) {
   const [form, setForm] = useState({ key: "", value: "" });
   const [run, busy] = useAction(notify);
+  useCopilotContext(() => ({ editors: form.key.trim() || form.value.trim() ? [{ kind: "fact-new", object_id: null, person_id: person.id, dirty: true, fields: form }] : [] }));
   const add = async (e) => {
     e.preventDefault();
     if (!form.key.trim() || !form.value.trim()) return;
@@ -40,6 +42,7 @@ export function FactsSection({ person, reload, notify }) {
 export function AliasesSection({ person, reload, notify }) {
   const [form, setForm] = useState({ kind: "whatsapp", value: "" });
   const [run, busy] = useAction(notify);
+  useCopilotContext(() => ({ editors: form.value.trim() ? [{ kind: "alias-new", object_id: null, person_id: person.id, dirty: true, fields: form }] : [] }));
   const add = async (e) => {
     e.preventDefault();
     if (!form.value.trim()) return;
@@ -75,6 +78,7 @@ export function AliasesSection({ person, reload, notify }) {
 export function InteractionsSection({ person, reload, notify }) {
   const [form, setForm] = useState({ channel: "whatsapp", summary: "" });
   const [run, busy] = useAction(notify);
+  useCopilotContext(() => ({ editors: form.summary.trim() ? [{ kind: "interaction-new", object_id: null, person_id: person.id, dirty: true, fields: form }] : [] }));
   const add = async (e) => {
     e.preventDefault();
     const out = await run(() => api.interactions.add(person.id, form), "Contacto apuntado.");
@@ -115,6 +119,7 @@ export function InteractionsSection({ person, reload, notify }) {
 export function RemindersSection({ person, reload, notify }) {
   const [form, setForm] = useState({ due: "", text: "", kind: "custom" });
   const [run, busy] = useAction(notify);
+  useCopilotContext(() => ({ editors: form.due || form.text.trim() ? [{ kind: "reminder-new", object_id: null, person_id: person.id, dirty: true, fields: form }] : [] }));
   const add = async (e) => {
     e.preventDefault();
     if (!form.due || !form.text.trim()) return;
@@ -182,10 +187,12 @@ export function GiftsSection({ person, notify }) {
   const [gifts, setGifts] = useState(null);
   const [form, setForm] = useState({ idea: "", url: "", budget: "" });
   const [run, busy] = useAction(notify);
+  useCopilotContext(() => ({ editors: form.idea.trim() || form.url.trim() || form.budget !== "" ? [{ kind: "gift-new", object_id: null, person_id: person.id, dirty: true, fields: form }] : [] }));
   const load = useCallback(async () => {
     try { setGifts((await api.gifts.list({ person: person.id, status: "all" })).gifts); } catch (e) { notify({ kind: "error", text: e.message }); }
   }, [person.id, notify]);
   useEffect(() => { load(); }, [load]);
+  useCopilotRefresh(() => { load(); });
   const add = async (e) => {
     e.preventDefault();
     if (!form.idea.trim()) return;
