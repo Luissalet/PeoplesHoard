@@ -3,6 +3,7 @@ import { api } from "../api.js";
 import { useApp } from "../App.jsx";
 import { Page, Section, Empty, useAction } from "../components/ui.jsx";
 import { dateLabel, daysAgoLabel, daysUntilLabel, commitmentDue, DIRECTION_LABELS } from "../format.js";
+import { useCopilotContext, useCopilotRefresh } from "../copilot-hooks.js";
 
 export default function Agenda() {
   const { notify } = useApp();
@@ -18,6 +19,8 @@ export default function Agenda() {
     }
   }, [days, notify]);
   useEffect(() => { load(); }, [load]);
+  useCopilotRefresh(() => { load(); });
+  useCopilotContext(() => ({ view: { days } }));
 
   const talkedToday = async (personId) => {
     const out = await run(() => api.interactions.add(personId, { channel: "other", summary: "Contacto rápido desde la agenda." }), "Apuntado como hablado hoy.");

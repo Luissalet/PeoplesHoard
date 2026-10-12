@@ -3,6 +3,7 @@ import { api } from "../api.js";
 import { useApp } from "../App.jsx";
 import { Page, Section, Empty, Field, useAction } from "../components/ui.jsx";
 import { CommitmentItem, CommitmentForm, ReviewCard } from "../components/Commitments.jsx";
+import { useCopilotContext, useCopilotRefresh } from "../copilot-hooks.js";
 
 const STATUS = { open: "Abiertos", done: "Cumplidos", dropped: "Descartados", all: "Todos" };
 const DIRECTIONS = [["", "Todos"], ["i_owe", "Le debo"], ["owed_to_me", "Me debe"]];
@@ -19,6 +20,10 @@ function IngestPanel({ onDone, notify }) {
   const [replace, setReplace] = useState(false);
   const [run, busy] = useAction(notify);
   const [outcome, setOutcome] = useState(null);
+  useCopilotContext(() => ({ editors: [
+    ...(sessionId.trim() ? [{ kind: "meeting-ingest", object_id: null, dirty: true, fields: { session_id: sessionId, replace } }] : []),
+    ...(text.trim() || hint.trim() ? [{ kind: "text-extract", object_id: null, dirty: true, fields: { text: text.length > 2000 ? `${text.slice(0, 2000)}...` : text, person_hint: hint } }] : []),
+  ] }));
 
   const ingest = async (e) => {
     e.preventDefault();
@@ -100,6 +105,8 @@ export default function Compromisos() {
     }
   }, [filter, notify, refresh]);
   useEffect(() => { load(); }, [load]);
+  useCopilotRefresh(() => { load(); });
+  useCopilotContext(() => ({ view: { filters: Object.fromEntries(Object.entries(filter).filter(([, v]) => v)), review_count: review.length } }));
   useEffect(() => {
     api.people.list({}).then(setPeople).catch(() => {});
     api.commitments.sync().then(setSync).catch(() => {});

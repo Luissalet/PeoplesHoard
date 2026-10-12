@@ -3,12 +3,14 @@ import { api } from "../api.js";
 import { useApp } from "../App.jsx";
 import { Page, Section, Empty, Field, CircleChips, useAction } from "../components/ui.jsx";
 import { daysAgoLabel, daysUntilBirthday, birthdayLabel } from "../format.js";
+import { useCopilotContext, useCopilotRefresh } from "../copilot-hooks.js";
 
 const blank = { name: "", nickname: "", circles: "", location: "" };
 
 function NewPersonForm({ onSubmit, onCancel, busy }) {
   const [form, setForm] = useState(blank);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  useCopilotContext(() => ({ editors: [{ kind: "person-new", object_id: null, dirty: Object.values(form).some((v) => v.trim()), fields: form }] }));
   const submit = async (e) => {
     e.preventDefault();
     const circles = form.circles.split(",").map((c) => c.trim()).filter(Boolean);
@@ -82,6 +84,8 @@ export default function Personas() {
     }
   }, [q, circle, notify]);
   useEffect(() => { load(); }, [load]);
+  useCopilotRefresh(() => { load(); });
+  useCopilotContext(() => ({ view: { filters: Object.fromEntries(Object.entries({ q, circle }).filter(([, v]) => v)) } }));
 
   const create = async (data) => {
     const out = await run(() => api.people.create(data), "Persona creada.");

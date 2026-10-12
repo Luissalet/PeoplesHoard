@@ -50,6 +50,7 @@ export const api = {
   },
   commitments: {
     list: (filter) => request("GET", `/api/commitments${qs(filter)}`),
+    get: (id) => request("GET", `/api/commitments/${encodeURIComponent(id)}`),
     add: (data) => request("POST", "/api/commitments", data),
     update: (id, data) => request("PATCH", `/api/commitments/${id}`, data),
     remove: (id) => request("DELETE", `/api/commitments/${id}`),

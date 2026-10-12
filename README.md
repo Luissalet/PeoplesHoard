@@ -100,6 +100,24 @@ All routes are JSON, validated with zod, and answer errors as `{ "error": "…" 
 | `GET /api/family/agenda` | The family agenda contract (birthdays, follow-ups, commitments with a day); needs this app's own bearer token. |
 | `GET /api/agent/tools` | Tool catalogue (name, description, JSON schema, annotations) and the assistant instructions. |
 | `POST /api/agent/call` | `{ name, arguments }` with `Authorization: Bearer <token>`; used by the MCP bridge. |
+| `GET /api/copilot/info` | Faustus copilot: `{ app_id, app_name, data_space_id, panel_url, ... }`; 503 `copilot_unavailable` when Faustus is not reachable. |
+| `GET /api/copilot/panel.js` | The Faustus panel script, relayed from Faustus. |
+| `GET /api/copilot/launcher.js` | The floating button and panel launcher the app adds to every HTML page. |
+| `POST /api/copilot/proxy` | `{ path, method, body? }`: relays the panel's chat calls to Faustus (only `/api/chat_stream`, `/api/chat/*`, `/api/session(s)` and `/api/hoard-copilot/*`), adds this app's origin and keeps the Faustus token out of the browser. |
+
+## Faustus copilot
+
+Every page has a floating **Faustus** button (bottom right) that opens the Faustus assistant in a side panel. The conversation, model, memory and tools live in Faustus: this app only relays the panel (`/api/copilot/*`) and keeps no history. It needs Faustus running (`HOARD_FAUSTUS_URL`, default `http://127.0.0.1:7000`); without it the button explains that the copilot is unavailable and the rest of the app is unaffected.
+
+What every turn tells the assistant (`window.hoardCopilot.context()`, read through the app's own API):
+
+- `view.page` (`people`, `person`, `agenda`, `commitments`, `settings`), the search and circle filters of Personas, the window of days in Agenda, the commitment filters and the number of proposals waiting in Compromisos.
+- `active_objects`: on a person's page, the person (circles, birthday, location, summary, counts), their facts, open reminders, open commitments and gift ideas; in Compromisos, the person used as a filter and the commitment whose edit form is open. A creation form, `#/personas/new` or an unknown id adds no object and never fails.
+- `view.editor`: the fields typed in the open form and which of them changed (the person's data, the summary and notes drafts, a new fact, alias, contact, reminder, gift idea, commitment or person, the merge search, the pasted meeting or text, the settings). Several open forms are listed in `view.editors`.
+
+When the assistant finishes a turn the open page reloads its data in place: the list, the person, their commitments and gifts, the agenda. Forms keep what you typed. Editing a person's data saves **only the fields you changed**, so a change the assistant made to another field in the meantime is not overwritten (the backend `PATCH` merges).
+
+Turn it off with `HOARD_COPILOT=0` (no `/api/copilot/*` routes, no button). The client is in `client/src/copilot-context.js` (context and refresh) and `client/src/copilot-hooks.js` (what each page and form reports).
 
 ## Connect an assistant (MCP)
 
