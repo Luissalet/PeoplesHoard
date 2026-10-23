@@ -30,22 +30,30 @@ export const interactionInput = z.object({
 export const interactionPatch = z.object(interactionShape).partial();
 
 const searchInstant = z.iso.datetime({ offset: true }).transform((value) => new Date(value).toISOString());
-export const interactionSearch = z.object({
+const historyFilters = {
   q: z.string().trim().max(200).default(""),
   person_id: z.string().trim().min(1).optional(),
   channel: z.enum(CHANNELS).optional(),
   from: searchInstant.optional(),
   to: searchInstant.optional(),
   include_archived: z.boolean().default(false),
+};
+const orderedDates = (value) => !value.from || !value.to || value.from <= value.to;
+const dateError = {
+  message: "La fecha desde no puede ser posterior a hasta.",
+};
+export const interactionSearch = z.object({
+  ...historyFilters,
   limit: z.number().int().min(1).max(100).default(25),
   offset: z.number().int().min(0).default(0),
-}).strict().refine((value) => !value.from || !value.to || value.from <= value.to, {
-  message: "La fecha desde no puede ser posterior a hasta.",
-});
+}).strict().refine(orderedDates, dateError);
+export const interactionExport = z.object({
+  ...historyFilters,
+  format: z.enum(["json", "csv"]).default("json"),
+}).strict().refine(orderedDates, dateError);
 
 /** Search the complete recorded history, not just each person's recent contacts. */
-export function searchInteractions(input = {}) {
-  const filter = interactionSearch.parse(input);
+function matchingInteractions(filter) {
   const where = [], params = [];
   if (!filter.include_archived) where.push("p.archived = 0");
   if (filter.person_id) { where.push("i.person_id = ?"); params.push(filter.person_id); }
@@ -60,10 +68,32 @@ export function searchInteractions(input = {}) {
     const text = fold([row.summary, row.person_name, row.person_nickname].join(" "));
     return words.every((word) => text.includes(word));
   }) : rows;
-  return { interactions: matches.slice(filter.offset, filter.offset + filter.limit).map((row) => ({
+  return matches.map((row) => ({
     ...row, person_archived: Boolean(row.person_archived),
-  })), total: matches.length, filters: filter, offset: filter.offset, limit: filter.limit,
+  }));
+}
+
+export function searchInteractions(input = {}) {
+  const filter = interactionSearch.parse(input);
+  const matches = matchingInteractions(filter);
+  return { interactions: matches.slice(filter.offset, filter.offset + filter.limit),
+    total: matches.length, filters: filter, offset: filter.offset, limit: filter.limit,
     has_more: filter.offset + filter.limit < matches.length };
+}
+
+/** An in-memory snapshot of all matching saved rows, independent of search pagination. */
+export function exportInteractions(input = {}) {
+  const { format, ...filters } = interactionExport.parse(input);
+  const rows = matchingInteractions(filters);
+  const exported_at = now();
+  const columns = ["id", "person_id", "person_name", "person_nickname", "person_archived", "at", "channel", "summary", "source", "ref", "created_at"];
+  const cell = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+  const text = format === "json"
+    ? JSON.stringify({ exported_at, filters, count: rows.length, interactions: rows }, null, 2) + "\n"
+    : "\uFEFF" + [columns, ...rows.map((row) => columns.map((key) => row[key]))].map((row) => row.map(cell).join(",")).join("\r\n") + "\r\n";
+  return { format, filename: `contact-history-${exported_at.slice(0, 10)}.${format}`,
+    media_type: format === "json" ? "application/json; charset=utf-8" : "text/csv; charset=utf-8",
+    count: rows.length, filters, exported_at, text };
 }
 
 export function listInteractions(personId, { limit = null } = {}) {

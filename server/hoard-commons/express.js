@@ -213,9 +213,9 @@ export function errorBody(error) {
  * (after express.json()). `tools` is the app's list (`{ name, description, annotations, schema, timeoutMs?, run? }`); `z` (zod) or
  * `toJsonSchema(tool)` turns a tool's schema into JSON Schema; `callTool(name, args)` runs one (default: parse with `tool.schema`
  * and call `tool.run(args)`); `token` / `tokenGetter` is the Bearer token; `recordCall` is family.recordCall; results are capped
- * at `capLimit` bytes (20000) unless the tool's result has a `__uncapped` marker. */
+ * at `capLimit` bytes (20000) unless explicitly listed in the server's `uncappedTools` option (file exports). */
 export function makeAgentRoutes({ app = "", tools = [], callTool = null, z = null, toJsonSchema = null, token = "", tokenGetter = null,
-  instructions = "", capLimit = 20000, recordCall = null } = {}) {
+  instructions = "", capLimit = 20000, uncappedTools = [], recordCall = null } = {}) {
   const index = new Map(tools.map((t) => [t.name, t]));
   const catalog = () => tools.map((t) => {
     let schema = { type: "object", properties: {} };
@@ -246,7 +246,7 @@ export function makeAgentRoutes({ app = "", tools = [], callTool = null, z = nul
       let result = await run(name, args ?? {});
       if (result === undefined || result === null || typeof result !== "object" || Array.isArray(result)) result = { result: result ?? null };
       ok = true;
-      return res.json(capResult(result, capLimit));
+      return res.json(uncappedTools.includes(name) ? result : capResult(result, capLimit));
     } catch (error) {
       const { status, body } = errorBody(error);
       failure = body.error;

@@ -98,7 +98,9 @@ Se apaga con `HOARD_COPILOT=0` (sin rutas `/api/copilot/*` y sin botón). El cli
 
 `faustus-plugin.json` describe la aplicación para Faustus (comprobación de salud, arranque y comando MCP con marcadores).
 
-Herramientas (31):
+Herramientas (32):
+
+Tras consultar el historial, **Descargar historial** exporta todas las coincidencias actuales en JSON o CSV UTF-8, de todas las páginas. Cambiar filtros, formato o cerrar invalida una descarga pendiente; los errores conservan los filtros para reintentar. El tool nativo de sólo lectura `export_interactions` devuelve el archivo completo incluso más allá de100filas o20KB. Consulta [exportación del historial](docs/history-export.md) para los formatos y el alcance de la instantánea.
 
 **Personas → Consultar historial** permite buscar todo el historial registrado,
 también conversaciones anteriores a los diez contactos recientes de una ficha.

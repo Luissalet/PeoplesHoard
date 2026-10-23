@@ -36,7 +36,8 @@ export function createApp({ dataDir, dataDirConfigured = false, serveStatic = tr
   app.use(createGuard({ allowedHosts }));
   app.use(express.json({ limit: "10mb" }));
   installRoutes(app, { version, dataDirConfigured });
-  makeAgentRoutes({ app: "people", tools: TOOLS, z, token, instructions: AGENT_INSTRUCTIONS, recordCall: family.recordCall }).install(app);
+  makeAgentRoutes({ app: "people", tools: TOOLS, z, token, instructions: AGENT_INSTRUCTIONS,
+    uncappedTools: ["export_interactions"], recordCall: family.recordCall }).install(app);
   // The family agenda (birthdays, follow-ups, commitments with a day): the hub asks with this app's own token.
   family.installAgenda(app, (from, to, sphere) => agendaItems(from, to, sphere));
   const DIST = path.join(ROOT, "dist");
