@@ -50,6 +50,15 @@ export const api = {
   },
   interactions: {
     search: (filter) => request("GET", `/api/interactions${qs(filter)}`),
+    export: async (filter) => {
+      const response = await fetch("/api/interactions/export", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(filter) });
+      if (!response.ok) {
+        let message = "No se pudo preparar el historial.";
+        try { message = (await response.json()).error || message; } catch { /* keep the recovery message */ }
+        throw new Error(message);
+      }
+      return { blob: await response.blob(), filename: `historial-contactos.${filter.format}` };
+    },
     add: (personId, data) => request("POST", `/api/people/${personId}/interactions`, data),
     update: (id, data) => request("PATCH", `/api/interactions/${id}`, data),
     remove: (id) => request("DELETE", `/api/interactions/${id}`),

@@ -40,6 +40,12 @@ Once opened through the tunnel, the browser offers to install it (PWA).
 
 ## What it does
 
+After a history search, **Descargar historial** exports every current match as
+JSON or UTF-8 CSV, across all pages. Filters and drafts survive errors; changing
+the query or format cancels a pending download. The read-only native
+`export_interactions` tool returns the complete file even beyond100rows or20KB.
+See [history export](docs/history-export.md) for formats and snapshot semantics.
+
 **Personas → Consultar historial** searches the complete recorded contact
 history, including conversations older than a profile's ten recent contacts.
 All search words match saved summaries, names or nicknames without accent
@@ -167,7 +173,7 @@ Turn it off with `HOARD_COPILOT=0` (no `/api/copilot/*` routes, no button). The 
 
 `faustus-plugin.json` describes the app for Faustus (health check, launch hint and the MCP command with placeholders).
 
-Tools (31):
+Tools (32):
 
 | Tool | Purpose |
 | --- | --- |
@@ -175,6 +181,7 @@ Tools (31):
 | `export_people_vcard` | Read-only vCard 4.0 export for explicit `person_ids`; returns `text`, `filename`, `media_type`, `count` and stable ids. Same native serializer as the UI/API; does not infer names, phone types or missing birthday years. |
 | `get_person` | Full record: facts, last 10 interactions, open reminders, open commitments both ways, days since last contact. |
 | `search_interactions` | Read-only full saved history; all-word accent-insensitive text, exact person id, channel, inclusive ISO instants, archived toggle and stable pagination with exact total. |
+| `export_interactions` | Complete JSON/UTF-8 CSV snapshot of all saved history matching the same filters, without pagination or the ordinary response cap. |
 | `prepare_person_chat` | Compact conversation brief, recomputed after edits, with source ids and conflicting fact values flagged. |
 | `upsert_person` | Create or update a person by id/exact name; all fields besides name are partial. |
 | `add_alias` | Attach a WhatsApp/e-mail/phone/other handle so future messages resolve to a person; idempotent. |

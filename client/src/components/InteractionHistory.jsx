@@ -16,7 +16,15 @@ export default function InteractionHistory({ visible }) {
   const [applied, setApplied] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [format, setFormat] = useState("json");
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState("");
+  const [exportError, setExportError] = useState("");
   const generation = useRef(0);
+  useEffect(() => {
+    if (!visible) { generation.current += 1; setBusy(false); setExporting(false); setExportStatus(""); }
+    return () => { generation.current += 1; };
+  }, [visible]);
   useEffect(() => { if (visible) api.people.list({ archived: "all" }).then(setPeople).catch(() => {}); }, [visible]);
   useCopilotContext(() => visible ? { editors: [{ kind: "interaction-history", object_id: null,
     dirty: JSON.stringify(form) !== JSON.stringify(blank), fields: form }],
@@ -27,15 +35,33 @@ export default function InteractionHistory({ visible }) {
     generation.current += 1;
     setForm((current) => ({ ...current, [key]: value }));
     setResult(null); setApplied(null); setError(""); setBusy(false);
+    setExporting(false); setExportStatus(""); setExportError("");
   }
   async function search(query) {
     const request = ++generation.current;
     setBusy(true); setError(""); setResult(null);
+    setExporting(false); setExportStatus(""); setExportError("");
     try {
       const answer = await api.interactions.search(query);
       if (request === generation.current) { setResult(answer); setApplied(query); }
     } catch (failure) { if (request === generation.current) setError(failure.message); }
     finally { if (request === generation.current) setBusy(false); }
+  }
+  async function download() {
+    const request = ++generation.current;
+    const { limit, offset, ...filters } = applied;
+    setExporting(true); setExportError(""); setExportStatus("");
+    try {
+      const file = await api.interactions.export({ ...filters, format });
+      if (request !== generation.current) return;
+      const url = URL.createObjectURL(file.blob);
+      const link = document.createElement("a");
+      link.href = url; link.download = file.filename;
+      document.body.append(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setExportStatus("Archivo preparado para descargar.");
+    } catch (failure) { if (request === generation.current) setExportError(failure.message); }
+    finally { if (request === generation.current) setExporting(false); }
   }
   const submit = (event) => {
     event.preventDefault();
@@ -54,12 +80,21 @@ export default function InteractionHistory({ visible }) {
         <Field label="Hasta el día"><input type="date" className="field" value={form.to} onChange={(e) => change("to", e.target.value)} /></Field>
         <Field label="Contactos por página"><select className="field" value={form.limit} onChange={(e) => change("limit", e.target.value)}><option value="25">25</option><option value="50">50</option><option value="100">100</option></select></Field>
         <label className="flex items-center gap-2"><input type="checkbox" checked={form.include_archived} onChange={(e) => change("include_archived", e.target.checked)} />Incluir personas archivadas</label>
-        <div className="flex flex-wrap gap-2"><button type="submit" className="btn btn-primary">{busy ? "Consultando…" : "Buscar contactos"}</button><button className="btn" type="button" onClick={() => { generation.current += 1; setForm(blank); setResult(null); setApplied(null); setError(""); }}>Limpiar filtros</button></div>
+        <div className="flex flex-wrap gap-2"><button type="submit" className="btn btn-primary">{busy ? "Consultando…" : "Buscar contactos"}</button><button className="btn" type="button" onClick={() => { generation.current += 1; setForm(blank); setResult(null); setApplied(null); setError(""); setExporting(false); setExportStatus(""); setExportError(""); }}>Limpiar filtros</button></div>
       </fieldset>
     </form>
     <p className="help mt-3">Días completos en {Intl.DateTimeFormat().resolvedOptions().timeZone}. Se consultan los resúmenes guardados; no se leen mensajes externos.</p>
     {error && <p role="alert" className="help mt-3">{error} Revisa los filtros o vuelve a intentarlo.</p>}
     <p role="status" className="help mt-3">{busy ? "Consultando el historial…" : result ? `Contactos encontrados: ${result.total} · Mostrados: ${result.interactions.length ? result.offset + 1 : 0}–${result.offset + result.interactions.length}.` : "Aplica los filtros para consultar el historial."}</p>
+    {result && <div className="mt-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <Field label="Formato del historial"><select className="field" value={format} onChange={(event) => { generation.current += 1; setFormat(event.target.value); setExporting(false); setExportStatus(""); setExportError(""); }}><option value="json">JSON</option><option value="csv">CSV (UTF-8)</option></select></Field>
+        <button className="btn" type="button" disabled={busy || exporting} onClick={download}>{exporting ? "Preparando archivo…" : "Descargar historial"}</button>
+      </div>
+      <p className="help mt-2">Incluye todas las coincidencias actuales de estos filtros, de todas las páginas. El archivo se prepara al pulsar descargar.</p>
+      <p role="status" className="help mt-2">{exporting ? "Preparando el historial completo…" : exportStatus}</p>
+      {exportError && <p role="alert" className="help mt-2">{exportError} Tus filtros se conservan; vuelve a pulsar Descargar historial.</p>}
+    </div>}
     {result && !result.interactions.length && <p className="mt-3">No hay contactos registrados que coincidan con estos filtros.</p>}
     {result?.interactions.length > 0 && <ol className="mt-4 divide-y" style={{ borderColor: "var(--line)" }}>{result.interactions.map((row) => <li key={row.id} className="min-w-0 py-4 first:pt-0">
       <div className="flex flex-wrap items-baseline justify-between gap-2"><a className="font-semibold break-words" href={`#/personas/${row.person_id}`}>{row.person_name}</a><time className="help" dateTime={row.at}>{momentLabel(row.at)}</time></div>

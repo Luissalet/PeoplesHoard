@@ -429,6 +429,15 @@ TOOLS.push(tool("search_interactions",
     + "Sinónimos: historial de contactos, qué hablamos sobre, conversaciones antiguas, buscar en el historial",
   interactions.interactionSearch, RO, interactions.searchInteractions));
 
+TOOLS.push(tool("export_interactions",
+  "Export all matching saved contact history as a complete JSON or UTF-8 CSV file.\n"
+    + "Read-only snapshot at call time using the same filters and ordering as search_interactions. No limit/offset: "
+    + "every matching row is included, even beyond 100 rows or 20 KB. Returns filename, media_type, count, filters, exported_at "
+    + "and complete text. JSON preserves nulls and booleans; CSV includes a UTF-8 BOM, header and quoted fields. "
+    + "No external messages are read or sent and no export file is stored on the server.\n"
+    + "Sinónimos: exportar historial, descargar contactos registrados, historial CSV, historial JSON",
+  interactions.interactionExport, RO, interactions.exportInteractions));
+
 export function findTool(name) {
   return TOOLS.find((t) => t.name === name);
 }

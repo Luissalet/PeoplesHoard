@@ -36,6 +36,12 @@ const exportSchema = z.object({
 });
 
 export function installRoutes(app, { version, dataDirConfigured }) {
+  app.post("/api/interactions/export", (req, res) => {
+    const file = interactions.exportInteractions(req.body);
+    res.setHeader("Content-Type", file.media_type);
+    res.setHeader("Content-Disposition", `attachment; filename="${file.filename}"`);
+    res.send(file.text);
+  });
   app.get("/api/health", (req, res) => {
     res.json({ service: "peoples-hoard", version, dataDirConfigured, hoard_link: family.healthBlock() });
   });
