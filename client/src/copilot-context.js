@@ -120,6 +120,7 @@ export async function buildContext({ hash, editors = [], view: viewInfo = {}, ge
   }
 
   if (page === "people" && viewInfo.filters && Object.keys(viewInfo.filters).length) view.filters = viewInfo.filters;
+  if (page === "people" && viewInfo.interaction_history) view.interaction_history = viewInfo.interaction_history;
   if (page === "agenda" && viewInfo.days != null) view.days = viewInfo.days;
 
   if (page === "commitments") {

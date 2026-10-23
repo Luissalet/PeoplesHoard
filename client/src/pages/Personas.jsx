@@ -5,6 +5,7 @@ import { Page, Section, Empty, Field, CircleChips, useAction } from "../componen
 import { daysAgoLabel, daysUntilBirthday, birthdayLabel } from "../format.js";
 import { useCopilotContext, useCopilotRefresh } from "../copilot-hooks.js";
 import DuplicatePeople from "../components/DuplicatePeople.jsx";
+import InteractionHistory from "../components/InteractionHistory.jsx";
 
 const blank = { name: "", nickname: "", circles: "", location: "" };
 
@@ -78,6 +79,7 @@ export default function Personas() {
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState([]);
   const [duplicatesOpen, setDuplicatesOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [run, busy] = useAction(notify);
 
   const load = useCallback(async () => {
@@ -109,8 +111,10 @@ export default function Personas() {
       <div className="mb-4 flex flex-col gap-3">
         <input className="field sm:max-w-[420px]" placeholder="Buscar por nombre, apodo o alias…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Buscar personas" />
         <CircleChips circles={circles || []} active={circle} onToggle={setCircle} />
+        <div><button type="button" className="btn" aria-expanded={historyOpen} aria-controls="people-history" onClick={() => setHistoryOpen(!historyOpen)}>{historyOpen ? "Cerrar historial" : "Consultar historial"}</button></div>
       </div>
       <div id="people-duplicates" hidden={!duplicatesOpen}><DuplicatePeople visible={duplicatesOpen} /></div>
+      <div id="people-history" hidden={!historyOpen}><InteractionHistory visible={historyOpen} /></div>
       {selecting && <div className="panel mb-4">
         <h2 className="font-semibold mb-2">Descargar contactos en vCard</h2>
         <p className="help mb-3">Nombre, apodo, teléfonos, correos, cumpleaños, ubicación y círculos guardados. El archivo .vcf contiene los datos de contacto; las notas y el historial permanecen en People.</p>

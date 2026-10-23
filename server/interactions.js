@@ -5,6 +5,7 @@ import { db, uid, now } from "./db.js";
 import { recomputeLastContact, getPerson } from "./people.js";
 import { localDate } from "./dates.js";
 import * as family from "./hoard-link.js";
+import { fold } from "./text.js";
 
 export const CHANNELS = ["whatsapp", "email", "call", "meet", "message", "other"];
 
@@ -27,6 +28,43 @@ export const interactionInput = z.object({
   source: interactionShape.source.default("manual"),
 });
 export const interactionPatch = z.object(interactionShape).partial();
+
+const searchInstant = z.iso.datetime({ offset: true }).transform((value) => new Date(value).toISOString());
+export const interactionSearch = z.object({
+  q: z.string().trim().max(200).default(""),
+  person_id: z.string().trim().min(1).optional(),
+  channel: z.enum(CHANNELS).optional(),
+  from: searchInstant.optional(),
+  to: searchInstant.optional(),
+  include_archived: z.boolean().default(false),
+  limit: z.number().int().min(1).max(100).default(25),
+  offset: z.number().int().min(0).default(0),
+}).strict().refine((value) => !value.from || !value.to || value.from <= value.to, {
+  message: "La fecha desde no puede ser posterior a hasta.",
+});
+
+/** Search the complete recorded history, not just each person's recent contacts. */
+export function searchInteractions(input = {}) {
+  const filter = interactionSearch.parse(input);
+  const where = [], params = [];
+  if (!filter.include_archived) where.push("p.archived = 0");
+  if (filter.person_id) { where.push("i.person_id = ?"); params.push(filter.person_id); }
+  if (filter.channel) { where.push("i.channel = ?"); params.push(filter.channel); }
+  if (filter.from) { where.push("julianday(i.at) >= julianday(?)"); params.push(filter.from); }
+  if (filter.to) { where.push("julianday(i.at) <= julianday(?)"); params.push(filter.to); }
+  const rows = db().prepare(`SELECT i.*, p.name AS person_name, p.nickname AS person_nickname, p.archived AS person_archived
+    FROM interactions i JOIN people p ON p.id = i.person_id
+    ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY julianday(i.at) DESC, i.id DESC`).all(...params);
+  const words = fold(filter.q).split(/\s+/).filter(Boolean);
+  const matches = words.length ? rows.filter((row) => {
+    const text = fold([row.summary, row.person_name, row.person_nickname].join(" "));
+    return words.every((word) => text.includes(word));
+  }) : rows;
+  return { interactions: matches.slice(filter.offset, filter.offset + filter.limit).map((row) => ({
+    ...row, person_archived: Boolean(row.person_archived),
+  })), total: matches.length, filters: filter, offset: filter.offset, limit: filter.limit,
+    has_more: filter.offset + filter.limit < matches.length };
+}
 
 export function listInteractions(personId, { limit = null } = {}) {
   let sql = "SELECT * FROM interactions WHERE person_id = ? ORDER BY at DESC";
