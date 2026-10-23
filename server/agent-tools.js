@@ -420,6 +420,15 @@ export const TOOLS = [
   ),
 ];
 
+TOOLS.push(tool("search_interactions",
+  "Search the full saved contact history across people, including older conversations.\n"
+    + "Read-only. All accent-insensitive q words must occur in summary, saved name or nickname. Optional person_id is an exact id; "
+    + "channel narrows the medium. from/to are inclusive ISO instants with explicit UTC offset, not inferred local dates. "
+    + "Archived people are excluded unless include_archived=true. Returns exact total, offset/limit, has_more and person ids; "
+    + "paginate to read older rows. Only recorded summaries are searched, not message bodies or external services.\n"
+    + "Sinónimos: historial de contactos, qué hablamos sobre, conversaciones antiguas, buscar en el historial",
+  interactions.interactionSearch, RO, interactions.searchInteractions));
+
 export function findTool(name) {
   return TOOLS.find((t) => t.name === name);
 }

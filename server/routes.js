@@ -101,6 +101,13 @@ export function installRoutes(app, { version, dataDirConfigured }) {
   app.delete("/api/facts/:id", (req, res) => res.json({ ok: facts.deleteFact(req.params.id) }));
 
   // ---------- Interactions ----------
+  app.get("/api/interactions", (req, res) => {
+    const query = { ...req.query };
+    for (const field of ["limit", "offset"]) if (query[field] !== undefined) query[field] = Number(query[field]);
+    if (query.include_archived === "true") query.include_archived = true;
+    else if (query.include_archived === "false") query.include_archived = false;
+    res.json(interactions.searchInteractions(query));
+  });
   app.post("/api/people/:id/interactions", (req, res) =>
     res.status(201).json(interactions.createInteraction(req.params.id, { ...req.body, source: "manual" })));
   app.patch("/api/interactions/:id", (req, res) => {

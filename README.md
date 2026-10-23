@@ -40,6 +40,16 @@ Once opened through the tunnel, the browser offers to install it (PWA).
 
 ## What it does
 
+**Personas → Consultar historial** searches the complete recorded contact
+history, including conversations older than a profile's ten recent contacts.
+All search words match saved summaries, names or nicknames without accent
+distinctions. Filter by person, channel, complete browser-local days and archived
+people, and page through the exact matching total. Changing filters retires the
+previous result; closing/reopening and copilot refresh keep the draft. No
+external messages are read and no contact or latest-contact date is changed.
+The native `search_interactions` MCP tool and `GET /api/interactions` share this
+read-only engine. See [history filters and dates](docs/interaction-history.md).
+
 The contact timeline form accepts an optional local date and time. Leaving it
 empty logs the server's current time. A chosen date previews the browser's
 interpreted date/time, IANA zone and UTC offset before sending an explicit ISO
@@ -157,13 +167,14 @@ Turn it off with `HOARD_COPILOT=0` (no `/api/copilot/*` routes, no button). The 
 
 `faustus-plugin.json` describes the app for Faustus (health check, launch hint and the MCP command with placeholders).
 
-Tools (30):
+Tools (31):
 
 | Tool | Purpose |
 | --- | --- |
 | `find_people` | Fuzzy, accent-insensitive, partial-name search over people, nicknames and aliases; returns scored candidates. |
 | `export_people_vcard` | Read-only vCard 4.0 export for explicit `person_ids`; returns `text`, `filename`, `media_type`, `count` and stable ids. Same native serializer as the UI/API; does not infer names, phone types or missing birthday years. |
 | `get_person` | Full record: facts, last 10 interactions, open reminders, open commitments both ways, days since last contact. |
+| `search_interactions` | Read-only full saved history; all-word accent-insensitive text, exact person id, channel, inclusive ISO instants, archived toggle and stable pagination with exact total. |
 | `prepare_person_chat` | Compact conversation brief, recomputed after edits, with source ids and conflicting fact values flagged. |
 | `upsert_person` | Create or update a person by id/exact name; all fields besides name are partial. |
 | `add_alias` | Attach a WhatsApp/e-mail/phone/other handle so future messages resolve to a person; idempotent. |

@@ -98,7 +98,17 @@ Se apaga con `HOARD_COPILOT=0` (sin rutas `/api/copilot/*` y sin botón). El cli
 
 `faustus-plugin.json` describe la aplicación para Faustus (comprobación de salud, arranque y comando MCP con marcadores).
 
-Herramientas (30):
+Herramientas (31):
+
+**Personas → Consultar historial** permite buscar todo el historial registrado,
+también conversaciones anteriores a los diez contactos recientes de una ficha.
+Cada palabra se busca sin distinguir acentos en resúmenes, nombres y apodos;
+puedes filtrar por persona, canal, días completos de tu zona y archivados, con
+paginación y total exacto. Cambiar filtros retira resultados anteriores; cerrar
+y reabrir el panel o refrescar desde Faustus conserva el borrador. No consulta
+mensajes externos ni modifica contactos. La nueva herramienta MCP de lectura
+`search_interactions` y `GET /api/interactions` usan el mismo motor nativo.
+[Contrato y fechas](docs/interaction-history.md).
 
 | Herramienta | Uso |
 | --- | --- |

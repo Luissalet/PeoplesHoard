@@ -49,6 +49,7 @@ export const api = {
     remove: (id) => request("DELETE", `/api/facts/${id}`),
   },
   interactions: {
+    search: (filter) => request("GET", `/api/interactions${qs(filter)}`),
     add: (personId, data) => request("POST", `/api/people/${personId}/interactions`, data),
     update: (id, data) => request("PATCH", `/api/interactions/${id}`, data),
     remove: (id) => request("DELETE", `/api/interactions/${id}`),
