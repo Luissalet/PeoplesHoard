@@ -1,0 +1,646 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-23T16:19:43.720Z",
+  "title": "Design System: People's Hoard",
+  "extensions": {
+    "sourceScope": {
+      "task": 1303,
+      "functionalFreeze": "44aa0518dfd5ff2cd2ca84ae6431f36d5cd5c31c",
+      "sources": [
+        "client/index.html",
+        "client/src/hoard-theme.css",
+        "client/src/index.css",
+        "client/src/components/InteractionHistory.jsx",
+        "client/src/components/ui.jsx",
+        "client/src/App.jsx",
+        "client/src/pages/Personas.jsx"
+      ],
+      "visualVerification": "Sólo Historial de contactos en /#/personas: escritorio 1280x900 y móvil 390x900. Resultado y error son viewports inferiores, no página completa. Primitivas compartidas extraídas del código; sin certificación visual global ni nativa.",
+      "evidence": [
+        "D:/LocalAI/research-inbox/people-history-export23/desktop.png",
+        "D:/LocalAI/research-inbox/people-history-export23/mobile.png",
+        "D:/LocalAI/research-inbox/people-history-export23/mobile-result.png",
+        "D:/LocalAI/research-inbox/people-history-export23/mobile-error.png",
+        "D:/LocalAI/research-inbox/people-history-export23/ROOT-REVIEW.md",
+        "D:/LocalAI/research-inbox/people-history-export23/PEER-REVIEW.md"
+      ],
+      "sidecarStatus": "No existía sidecar previo en este worktree. Generado al corregir DESIGN.md, sin modificar UI, recapturar ni repetir detector."
+    },
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "accent",
+        "canonical": "#d6905f",
+        "tonalRamp": [
+          "oklch(15.00% 0.1069 55.10)",
+          "oklch(26.43% 0.1069 55.10)",
+          "oklch(37.86% 0.1069 55.10)",
+          "oklch(49.29% 0.1069 55.10)",
+          "oklch(60.71% 0.1069 55.10)",
+          "oklch(72.14% 0.1069 55.10)",
+          "oklch(83.57% 0.1069 55.10)",
+          "oklch(95.00% 0.1069 55.10)"
+        ]
+      },
+      "accent-hover": {
+        "role": "primary",
+        "displayName": "accent-hover",
+        "canonical": "#dea77f",
+        "tonalRamp": [
+          "oklch(15.00% 0.0844 57.12)",
+          "oklch(26.43% 0.0844 57.12)",
+          "oklch(37.86% 0.0844 57.12)",
+          "oklch(49.29% 0.0844 57.12)",
+          "oklch(60.71% 0.0844 57.12)",
+          "oklch(72.14% 0.0844 57.12)",
+          "oklch(83.57% 0.0844 57.12)",
+          "oklch(95.00% 0.0844 57.12)"
+        ]
+      },
+      "accent-ink": {
+        "role": "primary",
+        "displayName": "accent-ink",
+        "canonical": "#1b1613",
+        "tonalRamp": [
+          "oklch(15.00% 0.0100 52.90)",
+          "oklch(26.43% 0.0100 52.90)",
+          "oklch(37.86% 0.0100 52.90)",
+          "oklch(49.29% 0.0100 52.90)",
+          "oklch(60.71% 0.0100 52.90)",
+          "oklch(72.14% 0.0100 52.90)",
+          "oklch(83.57% 0.0100 52.90)",
+          "oklch(95.00% 0.0100 52.90)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "ink",
+        "canonical": "#ece6e1",
+        "tonalRamp": [
+          "oklch(15.00% 0.0094 62.58)",
+          "oklch(26.43% 0.0094 62.58)",
+          "oklch(37.86% 0.0094 62.58)",
+          "oklch(49.29% 0.0094 62.58)",
+          "oklch(60.71% 0.0094 62.58)",
+          "oklch(72.14% 0.0094 62.58)",
+          "oklch(83.57% 0.0094 62.58)",
+          "oklch(95.00% 0.0094 62.58)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "muted",
+        "canonical": "#beb8b4",
+        "tonalRamp": [
+          "oklch(15.00% 0.0088 56.28)",
+          "oklch(26.43% 0.0088 56.28)",
+          "oklch(37.86% 0.0088 56.28)",
+          "oklch(49.29% 0.0088 56.28)",
+          "oklch(60.71% 0.0088 56.28)",
+          "oklch(72.14% 0.0088 56.28)",
+          "oklch(83.57% 0.0088 56.28)",
+          "oklch(95.00% 0.0088 56.28)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "paper",
+        "canonical": "#1c1814",
+        "tonalRamp": [
+          "oklch(15.00% 0.0100 67.25)",
+          "oklch(26.43% 0.0100 67.25)",
+          "oklch(37.86% 0.0100 67.25)",
+          "oklch(49.29% 0.0100 67.25)",
+          "oklch(60.71% 0.0100 67.25)",
+          "oklch(72.14% 0.0100 67.25)",
+          "oklch(83.57% 0.0100 67.25)",
+          "oklch(95.00% 0.0100 67.25)"
+        ]
+      },
+      "white": {
+        "role": "neutral",
+        "displayName": "white",
+        "canonical": "#241f1b",
+        "tonalRamp": [
+          "oklch(15.00% 0.0107 60.95)",
+          "oklch(26.43% 0.0107 60.95)",
+          "oklch(37.86% 0.0107 60.95)",
+          "oklch(49.29% 0.0107 60.95)",
+          "oklch(60.71% 0.0107 60.95)",
+          "oklch(72.14% 0.0107 60.95)",
+          "oklch(83.57% 0.0107 60.95)",
+          "oklch(95.00% 0.0107 60.95)"
+        ]
+      },
+      "sunken": {
+        "role": "neutral",
+        "displayName": "sunken",
+        "canonical": "#161310",
+        "tonalRamp": [
+          "oklch(15.00% 0.0077 67.33)",
+          "oklch(26.43% 0.0077 67.33)",
+          "oklch(37.86% 0.0077 67.33)",
+          "oklch(49.29% 0.0077 67.33)",
+          "oklch(60.71% 0.0077 67.33)",
+          "oklch(72.14% 0.0077 67.33)",
+          "oklch(83.57% 0.0077 67.33)",
+          "oklch(95.00% 0.0077 67.33)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "line",
+        "canonical": "#433b35",
+        "tonalRamp": [
+          "oklch(15.00% 0.0151 59.15)",
+          "oklch(26.43% 0.0151 59.15)",
+          "oklch(37.86% 0.0151 59.15)",
+          "oklch(49.29% 0.0151 59.15)",
+          "oklch(60.71% 0.0151 59.15)",
+          "oklch(72.14% 0.0151 59.15)",
+          "oklch(83.57% 0.0151 59.15)",
+          "oklch(95.00% 0.0151 59.15)"
+        ]
+      },
+      "border-hover": {
+        "role": "neutral",
+        "displayName": "border-hover",
+        "canonical": "#6a5f58",
+        "tonalRamp": [
+          "oklch(15.00% 0.0180 54.65)",
+          "oklch(26.43% 0.0180 54.65)",
+          "oklch(37.86% 0.0180 54.65)",
+          "oklch(49.29% 0.0180 54.65)",
+          "oklch(60.71% 0.0180 54.65)",
+          "oklch(72.14% 0.0180 54.65)",
+          "oklch(83.57% 0.0180 54.65)",
+          "oklch(95.00% 0.0180 54.65)"
+        ]
+      },
+      "soft": {
+        "role": "neutral",
+        "displayName": "soft",
+        "canonical": "#2f2925",
+        "tonalRamp": [
+          "oklch(15.00% 0.0114 55.88)",
+          "oklch(26.43% 0.0114 55.88)",
+          "oklch(37.86% 0.0114 55.88)",
+          "oklch(49.29% 0.0114 55.88)",
+          "oklch(60.71% 0.0114 55.88)",
+          "oklch(72.14% 0.0114 55.88)",
+          "oklch(83.57% 0.0114 55.88)",
+          "oklch(95.00% 0.0114 55.88)"
+        ]
+      },
+      "sidebar": {
+        "role": "neutral",
+        "displayName": "sidebar",
+        "canonical": "#241f1b",
+        "tonalRamp": [
+          "oklch(15.00% 0.0107 60.95)",
+          "oklch(26.43% 0.0107 60.95)",
+          "oklch(37.86% 0.0107 60.95)",
+          "oklch(49.29% 0.0107 60.95)",
+          "oklch(60.71% 0.0107 60.95)",
+          "oklch(72.14% 0.0107 60.95)",
+          "oklch(83.57% 0.0107 60.95)",
+          "oklch(95.00% 0.0107 60.95)"
+        ]
+      },
+      "nav-active": {
+        "role": "neutral",
+        "displayName": "nav-active",
+        "canonical": "#2f2925",
+        "tonalRamp": [
+          "oklch(15.00% 0.0114 55.88)",
+          "oklch(26.43% 0.0114 55.88)",
+          "oklch(37.86% 0.0114 55.88)",
+          "oklch(49.29% 0.0114 55.88)",
+          "oklch(60.71% 0.0114 55.88)",
+          "oklch(72.14% 0.0114 55.88)",
+          "oklch(83.57% 0.0114 55.88)",
+          "oklch(95.00% 0.0114 55.88)"
+        ]
+      },
+      "nav-active-ink": {
+        "role": "neutral",
+        "displayName": "nav-active-ink",
+        "canonical": "#ece6e1",
+        "tonalRamp": [
+          "oklch(15.00% 0.0094 62.58)",
+          "oklch(26.43% 0.0094 62.58)",
+          "oklch(37.86% 0.0094 62.58)",
+          "oklch(49.29% 0.0094 62.58)",
+          "oklch(60.71% 0.0094 62.58)",
+          "oklch(72.14% 0.0094 62.58)",
+          "oklch(83.57% 0.0094 62.58)",
+          "oklch(95.00% 0.0094 62.58)"
+        ]
+      },
+      "nav-hover": {
+        "role": "neutral",
+        "displayName": "nav-hover",
+        "canonical": "#2f2925",
+        "tonalRamp": [
+          "oklch(15.00% 0.0114 55.88)",
+          "oklch(26.43% 0.0114 55.88)",
+          "oklch(37.86% 0.0114 55.88)",
+          "oklch(49.29% 0.0114 55.88)",
+          "oklch(60.71% 0.0114 55.88)",
+          "oklch(72.14% 0.0114 55.88)",
+          "oklch(83.57% 0.0114 55.88)",
+          "oklch(95.00% 0.0114 55.88)"
+        ]
+      },
+      "field-line": {
+        "role": "neutral",
+        "displayName": "field-line",
+        "canonical": "#433b35",
+        "tonalRamp": [
+          "oklch(15.00% 0.0151 59.15)",
+          "oklch(26.43% 0.0151 59.15)",
+          "oklch(37.86% 0.0151 59.15)",
+          "oklch(49.29% 0.0151 59.15)",
+          "oklch(60.71% 0.0151 59.15)",
+          "oklch(72.14% 0.0151 59.15)",
+          "oklch(83.57% 0.0151 59.15)",
+          "oklch(95.00% 0.0151 59.15)"
+        ]
+      },
+      "field-ink": {
+        "role": "neutral",
+        "displayName": "field-ink",
+        "canonical": "#ece6e1",
+        "tonalRamp": [
+          "oklch(15.00% 0.0094 62.58)",
+          "oklch(26.43% 0.0094 62.58)",
+          "oklch(37.86% 0.0094 62.58)",
+          "oklch(49.29% 0.0094 62.58)",
+          "oklch(60.71% 0.0094 62.58)",
+          "oklch(72.14% 0.0094 62.58)",
+          "oklch(83.57% 0.0094 62.58)",
+          "oklch(95.00% 0.0094 62.58)"
+        ]
+      },
+      "placeholder": {
+        "role": "neutral",
+        "displayName": "placeholder",
+        "canonical": "#a6a09b",
+        "tonalRamp": [
+          "oklch(15.00% 0.0100 62.53)",
+          "oklch(26.43% 0.0100 62.53)",
+          "oklch(37.86% 0.0100 62.53)",
+          "oklch(49.29% 0.0100 62.53)",
+          "oklch(60.71% 0.0100 62.53)",
+          "oklch(72.14% 0.0100 62.53)",
+          "oklch(83.57% 0.0100 62.53)",
+          "oklch(95.00% 0.0100 62.53)"
+        ]
+      },
+      "supporting-ink": {
+        "role": "neutral",
+        "displayName": "supporting-ink",
+        "canonical": "#beb8b4",
+        "tonalRamp": [
+          "oklch(15.00% 0.0088 56.28)",
+          "oklch(26.43% 0.0088 56.28)",
+          "oklch(37.86% 0.0088 56.28)",
+          "oklch(49.29% 0.0088 56.28)",
+          "oklch(60.71% 0.0088 56.28)",
+          "oklch(72.14% 0.0088 56.28)",
+          "oklch(83.57% 0.0088 56.28)",
+          "oklch(95.00% 0.0088 56.28)"
+        ]
+      },
+      "focus": {
+        "role": "primary",
+        "displayName": "focus",
+        "canonical": "#d6905f",
+        "tonalRamp": [
+          "oklch(15.00% 0.1069 55.10)",
+          "oklch(26.43% 0.1069 55.10)",
+          "oklch(37.86% 0.1069 55.10)",
+          "oklch(49.29% 0.1069 55.10)",
+          "oklch(60.71% 0.1069 55.10)",
+          "oklch(72.14% 0.1069 55.10)",
+          "oklch(83.57% 0.1069 55.10)",
+          "oklch(95.00% 0.1069 55.10)"
+        ]
+      },
+      "button-line": {
+        "role": "neutral",
+        "displayName": "button-line",
+        "canonical": "#433b35",
+        "tonalRamp": [
+          "oklch(15.00% 0.0151 59.15)",
+          "oklch(26.43% 0.0151 59.15)",
+          "oklch(37.86% 0.0151 59.15)",
+          "oklch(49.29% 0.0151 59.15)",
+          "oklch(60.71% 0.0151 59.15)",
+          "oklch(72.14% 0.0151 59.15)",
+          "oklch(83.57% 0.0151 59.15)",
+          "oklch(95.00% 0.0151 59.15)"
+        ]
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "panel",
+        "canonical": "#241f1b",
+        "tonalRamp": [
+          "oklch(15.00% 0.0107 60.95)",
+          "oklch(26.43% 0.0107 60.95)",
+          "oklch(37.86% 0.0107 60.95)",
+          "oklch(49.29% 0.0107 60.95)",
+          "oklch(60.71% 0.0107 60.95)",
+          "oklch(72.14% 0.0107 60.95)",
+          "oklch(83.57% 0.0107 60.95)",
+          "oklch(95.00% 0.0107 60.95)"
+        ]
+      },
+      "circle-bg": {
+        "role": "primary",
+        "displayName": "circle-bg",
+        "canonical": "rgba(214, 144, 95, 0.14)",
+        "tonalRamp": [
+          "oklch(15.00% 0.1069 55.10)",
+          "oklch(26.43% 0.1069 55.10)",
+          "oklch(37.86% 0.1069 55.10)",
+          "oklch(49.29% 0.1069 55.10)",
+          "oklch(60.71% 0.1069 55.10)",
+          "oklch(72.14% 0.1069 55.10)",
+          "oklch(83.57% 0.1069 55.10)",
+          "oklch(95.00% 0.1069 55.10)"
+        ]
+      },
+      "circle-ink": {
+        "role": "primary",
+        "displayName": "circle-ink",
+        "canonical": "#d6905f",
+        "tonalRamp": [
+          "oklch(15.00% 0.1069 55.10)",
+          "oklch(26.43% 0.1069 55.10)",
+          "oklch(37.86% 0.1069 55.10)",
+          "oklch(49.29% 0.1069 55.10)",
+          "oklch(60.71% 0.1069 55.10)",
+          "oklch(72.14% 0.1069 55.10)",
+          "oklch(83.57% 0.1069 55.10)",
+          "oklch(95.00% 0.1069 55.10)"
+        ]
+      },
+      "warn-bg": {
+        "role": "semantic",
+        "displayName": "warn-bg",
+        "canonical": "color-mix(in srgb, var(--hoard-warning) 16%, transparent)",
+        "tonalRamp": [
+          "oklch(15.00% 0.1274 84.93)",
+          "oklch(26.43% 0.1274 84.93)",
+          "oklch(37.86% 0.1274 84.93)",
+          "oklch(49.29% 0.1274 84.93)",
+          "oklch(60.71% 0.1274 84.93)",
+          "oklch(72.14% 0.1274 84.93)",
+          "oklch(83.57% 0.1274 84.93)",
+          "oklch(95.00% 0.1274 84.93)"
+        ]
+      },
+      "warn-ink": {
+        "role": "semantic",
+        "displayName": "warn-ink",
+        "canonical": "color-mix(in srgb, var(--hoard-warning) 70%, white)",
+        "tonalRamp": [
+          "oklch(15.00% 0.1274 84.93)",
+          "oklch(26.43% 0.1274 84.93)",
+          "oklch(37.86% 0.1274 84.93)",
+          "oklch(49.29% 0.1274 84.93)",
+          "oklch(60.71% 0.1274 84.93)",
+          "oklch(72.14% 0.1274 84.93)",
+          "oklch(83.57% 0.1274 84.93)",
+          "oklch(95.00% 0.1274 84.93)"
+        ]
+      },
+      "danger-bg": {
+        "role": "semantic",
+        "displayName": "danger-bg",
+        "canonical": "color-mix(in srgb, var(--hoard-danger) 16%, transparent)",
+        "tonalRamp": [
+          "oklch(15.00% 0.1634 28.69)",
+          "oklch(26.43% 0.1634 28.69)",
+          "oklch(37.86% 0.1634 28.69)",
+          "oklch(49.29% 0.1634 28.69)",
+          "oklch(60.71% 0.1634 28.69)",
+          "oklch(72.14% 0.1634 28.69)",
+          "oklch(83.57% 0.1634 28.69)",
+          "oklch(95.00% 0.1634 28.69)"
+        ]
+      },
+      "danger-ink": {
+        "role": "semantic",
+        "displayName": "danger-ink",
+        "canonical": "color-mix(in srgb, var(--hoard-danger) 55%, white)",
+        "tonalRamp": [
+          "oklch(15.00% 0.1634 28.69)",
+          "oklch(26.43% 0.1634 28.69)",
+          "oklch(37.86% 0.1634 28.69)",
+          "oklch(49.29% 0.1634 28.69)",
+          "oklch(60.71% 0.1634 28.69)",
+          "oklch(72.14% 0.1634 28.69)",
+          "oklch(83.57% 0.1634 28.69)",
+          "oklch(95.00% 0.1634 28.69)"
+        ]
+      },
+      "danger-line": {
+        "role": "semantic",
+        "displayName": "danger-line",
+        "canonical": "color-mix(in srgb, var(--hoard-danger) 40%, transparent)",
+        "tonalRamp": [
+          "oklch(15.00% 0.1634 28.69)",
+          "oklch(26.43% 0.1634 28.69)",
+          "oklch(37.86% 0.1634 28.69)",
+          "oklch(49.29% 0.1634 28.69)",
+          "oklch(60.71% 0.1634 28.69)",
+          "oklch(72.14% 0.1634 28.69)",
+          "oklch(83.57% 0.1634 28.69)",
+          "oklch(95.00% 0.1634 28.69)"
+        ]
+      },
+      "ok-bg": {
+        "role": "semantic",
+        "displayName": "ok-bg",
+        "canonical": "color-mix(in srgb, var(--hoard-success) 16%, transparent)",
+        "tonalRamp": [
+          "oklch(15.00% 0.1111 155.72)",
+          "oklch(26.43% 0.1111 155.72)",
+          "oklch(37.86% 0.1111 155.72)",
+          "oklch(49.29% 0.1111 155.72)",
+          "oklch(60.71% 0.1111 155.72)",
+          "oklch(72.14% 0.1111 155.72)",
+          "oklch(83.57% 0.1111 155.72)",
+          "oklch(95.00% 0.1111 155.72)"
+        ]
+      },
+      "ok-ink": {
+        "role": "semantic",
+        "displayName": "ok-ink",
+        "canonical": "color-mix(in srgb, var(--hoard-success) 68%, white)",
+        "tonalRamp": [
+          "oklch(15.00% 0.1111 155.72)",
+          "oklch(26.43% 0.1111 155.72)",
+          "oklch(37.86% 0.1111 155.72)",
+          "oklch(49.29% 0.1111 155.72)",
+          "oklch(60.71% 0.1111 155.72)",
+          "oklch(72.14% 0.1111 155.72)",
+          "oklch(83.57% 0.1111 155.72)",
+          "oklch(95.00% 0.1111 155.72)"
+        ]
+      }
+    },
+    "tonalRampNote": "Muestras sintetizadas en OKLCH con croma y tono constantes; no son tokens implementados ni variantes de tema. Colores transparentes y mezclas parten de su pigmento semántico.",
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Título serif de página",
+        "purpose": "Regla final main h1; pila declarada, sin acreditar disponibilidad de Cinzel."
+      },
+      "title": {
+        "displayName": "Título sans de sección",
+        "purpose": "Historial de contactos conserva sans."
+      },
+      "body": {
+        "displayName": "Texto sans",
+        "purpose": "Texto y formularios del tema compartido."
+      }
+    },
+    "shadows": [
+      {
+        "name": "floating",
+        "value": "0 8px 28px rgba(0, 0, 0, 0.38)",
+        "purpose": "Diálogos y avisos; fuente CSS, no recapturados."
+      }
+    ],
+    "motion": [
+      {
+        "name": "button-state",
+        "value": "background 0.16s, color 0.16s",
+        "purpose": "Botones; movimiento reducido desactiva transiciones y animaciones."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
+    ],
+    "historyExport": {
+      "scope": "Extensión local Operate; contador y exportación antes de las filas, lectura y paginación conservadas.",
+      "controls": [
+        "Formato del historial: JSON o CSV (UTF-8)",
+        "Descargar historial"
+      ],
+      "states": [
+        "Preparando archivo…; botón deshabilitado y estado textual",
+        "Archivo preparado para descargar.",
+        "Alerta en el flujo; filtros conservados y reintento con el mismo botón"
+      ],
+      "reflow": "Filtros: 1 columna, 2 desde 640px, 3 desde 1024px; formato y botón con flex-wrap, ayudas debajo.",
+      "invalidation": "Cambiar filtros, formato o consulta, cerrar o desmontar invalida la petición pendiente."
+    }
+  },
+  "components": [
+    {
+      "name": "Botón primario",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Primitiva compartida usada en Historial.",
+      "html": "<button class=\"ds-primary\">Buscar contactos</button>",
+      "css": ".ds-primary{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:8px 15px;border:1px solid var(--hoard-border,#433b35);border-radius:var(--hoard-radius,8px);background:transparent;color:var(--hoard-text,#ece6e1);font:600 13px/18px var(--hoard-font-sans,'Source Sans 3',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans','Liberation Sans',Arial,sans-serif);cursor:pointer;white-space:nowrap;transition:background .16s,color .16s;background:var(--hoard-accent,#d6905f);border-color:var(--hoard-accent,#d6905f);color:var(--hoard-accent-ink,#1b1613);}.ds-primary:hover{background:var(--hoard-accent-strong,#dea77f);border-color:var(--hoard-accent-strong,#dea77f);}.ds-primary:focus-visible{outline:2px solid var(--hoard-accent,#d6905f);outline-offset:2px;}.ds-primary:disabled{opacity:.45;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-primary{transition:none}}"
+    },
+    {
+      "name": "Botón secundario",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Primitiva compartida usada en Historial.",
+      "html": "<button class=\"ds-secondary\">Descargar historial</button>",
+      "css": ".ds-secondary{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:8px 15px;border:1px solid var(--hoard-border,#433b35);border-radius:var(--hoard-radius,8px);background:transparent;color:var(--hoard-text,#ece6e1);font:600 13px/18px var(--hoard-font-sans,'Source Sans 3',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans','Liberation Sans',Arial,sans-serif);cursor:pointer;white-space:nowrap;transition:background .16s,color .16s;}.ds-secondary:hover{background:var(--hoard-elevated,#2f2925);}.ds-secondary:focus-visible{outline:2px solid var(--hoard-accent,#d6905f);outline-offset:2px;}.ds-secondary:disabled{opacity:.45;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-secondary{transition:none}}"
+    },
+    {
+      "name": "Botón destructivo",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Primitiva compartida extraída del código, sin verificación visual en esta tarea.",
+      "html": "<button class=\"ds-danger\">Borrar</button>",
+      "css": ".ds-danger{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:8px 15px;border:1px solid var(--hoard-border,#433b35);border-radius:var(--hoard-radius,8px);background:transparent;color:var(--hoard-text,#ece6e1);font:600 13px/18px var(--hoard-font-sans,'Source Sans 3',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans','Liberation Sans',Arial,sans-serif);cursor:pointer;white-space:nowrap;transition:background .16s,color .16s;color:var(--danger-ink,color-mix(in srgb,#c4463a 55%,white));}.ds-danger:hover{background:var(--danger-bg,color-mix(in srgb,#c4463a 16%,transparent));border-color:var(--danger-line,color-mix(in srgb,#c4463a 40%,transparent));}.ds-danger:focus-visible{outline:2px solid var(--hoard-accent,#d6905f);outline-offset:2px;}.ds-danger:disabled{opacity:.45;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-danger{transition:none}}"
+    },
+    {
+      "name": "Campo etiquetado",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Campo de Historial con fondo hundido y etiqueta visible.",
+      "html": "<label class=\"ds-label\">Texto del historial<input class=\"ds-field\" placeholder=\"Resumen, nombre o apodo\"></label>",
+      "css": ".ds-label{display:block;color:var(--hoard-text,#ece6e1);font:600 12px/1.65 var(--hoard-font-sans,'Source Sans 3',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans','Liberation Sans',Arial,sans-serif)}.ds-field{display:block;box-sizing:border-box;width:100%;min-width:0;margin-top:4px;padding:8px 11px;border:1px solid var(--hoard-border,#433b35);border-radius:var(--hoard-radius,8px);background:var(--hoard-sunken,#161310);color:var(--hoard-text,#ece6e1);font:400 13px/1.5 var(--hoard-font-sans,'Source Sans 3',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans','Liberation Sans',Arial,sans-serif)}.ds-field::placeholder{color:var(--hoard-text-dim,#a6a09b)}.ds-field:focus{outline:none;border-color:var(--hoard-accent,#d6905f)}"
+    },
+    {
+      "name": "Navegación activa",
+      "kind": "nav",
+      "refersTo": "nav-active",
+      "description": "Marco compartido visible en las capturas de Historial.",
+      "html": "<a class=\"ds-nav\" href=\"#/personas\" aria-current=\"page\">Personas</a>",
+      "css": ".ds-nav{display:flex;align-items:center;min-height:40px;box-sizing:border-box;gap:10px;padding:8px 12px;border-radius:var(--hoard-radius,8px);background:var(--hoard-elevated,#2f2925);color:var(--hoard-text,#ece6e1);text-decoration:none;font:600 14px/1.65 var(--hoard-font-sans,'Source Sans 3',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans','Liberation Sans',Arial,sans-serif)}.ds-nav:hover{background:var(--hoard-elevated,#2f2925);color:var(--hoard-text,#ece6e1)}.ds-nav:focus-visible{outline:2px solid var(--hoard-accent,#d6905f);outline-offset:2px;}"
+    },
+    {
+      "name": "Chip neutro",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Primitiva compartida extraída del CSS, sin verificación visual de todos sus usos.",
+      "html": "<span class=\"ds-chip\">familia</span>",
+      "css": ".ds-chip{display:inline-block;padding:2px 6px;border-radius:var(--hoard-radius-sm,6px);background:var(--hoard-elevated,#2f2925);color:var(--hoard-text-muted,#beb8b4);font:500 10px/1.65 var(--hoard-font-sans,'Source Sans 3',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans','Liberation Sans',Arial,sans-serif);letter-spacing:.02em}"
+    },
+    {
+      "name": "Tarjeta de persona",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Primitiva compartida extraída del código, sin certificación visual de la tarjeta completa en esta tarea.",
+      "html": "<a class=\"ds-card\" href=\"#/personas/1\"><strong>Nombre de persona</strong><span>Sin contacto registrado</span></a>",
+      "css": ".ds-card{display:block;padding:16px;border:1px solid var(--hoard-border,#433b35);border-radius:var(--hoard-radius-lg,10px);background:var(--hoard-surface,#241f1b);color:var(--hoard-text,#ece6e1);text-decoration:none;font:400 14px/1.65 var(--hoard-font-sans,'Source Sans 3',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans','Liberation Sans',Arial,sans-serif);transition:box-shadow .16s,border-color .16s}.ds-card:hover{border-color:var(--hoard-border-hover,#6a5f58);box-shadow:none}.ds-card:focus-visible{outline:2px solid var(--hoard-accent,#d6905f);outline-offset:2px;}.ds-card strong{font-size:15px;font-weight:600}.ds-card span{display:block;margin-top:12px;color:var(--hoard-text-muted,#beb8b4);font-size:12px}@media(prefers-reduced-motion:reduce){.ds-card{transition:none}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Agenda de bolsillo",
+    "overview": "Una agenda personal de carbón cálido, paneles marrones y acento terracota luminoso para las acciones. La interfaz está en español de España; las fechas combinan expresiones relativas y fechas locales legibles según el contexto.\n\nLa dirección estética vigente se hereda del tema Hoard: títulos de página y marca serif, texto y formularios sans, capas oscuras planas y bordes discretos. Los nombres históricos `paper` y `white` son alias de superficies oscuras; la antigua descripción de papel claro ha quedado sustituida por los tokens actuales.\n\nAlcance de esta actualización (tarea 1303): Historial de contactos en `/#/personas`, contrastado con `client/src/index.css`, su importación de `hoard-theme.css`, `client/index.html` (`data-hoard-app=\"people\"`), `InteractionHistory.jsx`, `ui.jsx` y las capturas existentes de la entrega congelada `44aa0518dfd5ff2cd2ca84ae6431f36d5cd5c31c`. `index.css` mapea los alias y sus reglas finales sin capa prevalecen sobre las clases iniciales y las utilidades. Las cuatro capturas de `D:/LocalAI/research-inbox/people-history-export23/` cubren escritorio (1280×900), móvil desde arriba (390×900) y los estados de resultado/error en viewports inferiores (390×900); estos últimos no son capturas de página completa. Esta actualización no añade capturas ni detector. Las primitivas compartidas se extraen de esa cascada; las descripciones conservadas de otras superficies son contexto de código y documentación previa, sin certificación visual global ni nativa.\n\n",
+    "keyCharacteristics": [
+      "Tarjetas de persona en rejilla, no filas de tabla: esto es gente, no líneas de un extracto.",
+      "Círculos (\"familia\", \"amigos\", \"trabajo\") como chips neutros, reutilizados como filtro y como etiqueta.",
+      "El tiempo se lee siempre en palabras: \"hace 12 días\", \"en 3 días\", \"hoy\", nunca solo una fecha ISO.",
+      "Cada escritura es inmediata: el resumen y las notas se guardan al salir del campo; los datos, alias, contactos y recordatorios se añaden con formularios pequeños en línea."
+    ],
+    "rules": [
+      {
+        "name": "The Nunca solo color Rule",
+        "body": "Cada estado temporal (cumpleaños cerca, abandonado, recordatorio vencido) se lee en el texto (\"hace 12 días\", \"en 3 días\"); el color es refuerzo, no el único portador de la información.",
+        "section": "colors"
+      },
+      {
+        "name": "The Profundidad funcional Rule",
+        "body": "Una sombra en reposo significa \"esto flota sobre la página\"; en People's Hoard nada flota salvo diálogos y avisos.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** escribir el tiempo en palabras (\"hace 12 días\", \"en 3 días\") además de la fecha exacta cuando haga falta.",
+      "**Do** dejar que el resumen y las notas se guarden solos; usar formularios solo para altas (persona, dato, alias, contacto, recordatorio).",
+      "**Do** mostrar el círculo como chip reutilizado igual en la tarjeta, la ficha y el filtro.",
+      "**Do** confirmar siempre antes de borrar o fusionar personas: son acciones irreversibles."
+    ],
+    "donts": [
+      "**Don't** añadir un segundo color de acento ni usar avatares o fotos generadas.",
+      "**Don't** convertir la agenda en una tabla de filas: las personas son tarjetas.",
+      "**Don't** mostrar un cumpleaños o un contacto reciente solo con color: el texto siempre lo dice.",
+      "**Don't** dejar que \"Editar datos\" edite campo a campo; es un formulario completo con guardar/cancelar explícitos."
+    ]
+  }
+}
