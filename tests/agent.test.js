@@ -6,6 +6,7 @@ import { bootServer } from "./helpers.js";
 import { TOOLS } from "../server/agent-tools.js";
 
 const EXPECTED = [
+  "export_people_vcard",
   "find_people", "get_person", "prepare_person_chat", "upsert_person", "add_alias", "add_fact", "log_interaction",
   "add_reminder", "complete_reminder", "upcoming", "list_people",
   "commitments_list", "commitment_add", "commitment_update", "commitment_done", "commitment_drop", "commitments_review",
