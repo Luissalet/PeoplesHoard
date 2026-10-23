@@ -40,6 +40,16 @@ Once opened through the tunnel, the browser offers to install it (PWA).
 
 ## What it does
 
+The contact timeline form accepts an optional local date and time. Leaving it
+empty logs the server's current time. A chosen date previews the browser's
+interpreted date/time, IANA zone and UTC offset before sending an explicit ISO
+instant through the existing API. Adding an older conversation never moves the
+native latest-contact date backwards. Across daylight-saving transitions the
+preview shows the browser's actual interpretation; it does not select between
+both occurrences of a repeated hour. Errors and copilot refresh preserve the
+date/channel/summary draft, including date-only drafts. No backend or MCP tool
+contract changes.
+
 In **Personas**, **Buscar duplicados** opens an explicit query over the whole
 address book through the existing `find_duplicate_people` engine and
 `GET /api/people/duplicates`. Similarity threshold, archived contacts and limit
