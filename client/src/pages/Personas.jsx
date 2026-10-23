@@ -4,6 +4,7 @@ import { useApp } from "../App.jsx";
 import { Page, Section, Empty, Field, CircleChips, useAction } from "../components/ui.jsx";
 import { daysAgoLabel, daysUntilBirthday, birthdayLabel } from "../format.js";
 import { useCopilotContext, useCopilotRefresh } from "../copilot-hooks.js";
+import DuplicatePeople from "../components/DuplicatePeople.jsx";
 
 const blank = { name: "", nickname: "", circles: "", location: "" };
 
@@ -76,6 +77,7 @@ export default function Personas() {
   const [creating, setCreating] = useState(false);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState([]);
+  const [duplicatesOpen, setDuplicatesOpen] = useState(false);
   const [run, busy] = useAction(notify);
 
   const load = useCallback(async () => {
@@ -101,13 +103,14 @@ export default function Personas() {
     <Page
       title="Personas"
       description="Quién es quién, qué sabes de cada persona y cuándo hablasteis por última vez."
-      actions={!creating && <><button type="button" className="btn" disabled={!people.length} aria-expanded={selecting} onClick={() => { setSelecting(!selecting); setSelected([]); }}>Exportar contactos</button><button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>Nueva persona</button></>}
+      actions={!creating && <><button type="button" className="btn" aria-expanded={duplicatesOpen} aria-controls="people-duplicates" onClick={() => setDuplicatesOpen(!duplicatesOpen)}>{duplicatesOpen ? "Cerrar coincidencias" : "Buscar duplicados"}</button><button type="button" className="btn" disabled={!people.length} aria-expanded={selecting} onClick={() => { setSelecting(!selecting); setSelected([]); }}>Exportar contactos</button><button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>Nueva persona</button></>}
     >
       {creating && <div className="mb-4"><NewPersonForm onSubmit={create} onCancel={() => setCreating(false)} busy={busy} /></div>}
       <div className="mb-4 flex flex-col gap-3">
         <input className="field sm:max-w-[420px]" placeholder="Buscar por nombre, apodo o alias…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Buscar personas" />
         <CircleChips circles={circles || []} active={circle} onToggle={setCircle} />
       </div>
+      <div id="people-duplicates" hidden={!duplicatesOpen}><DuplicatePeople visible={duplicatesOpen} /></div>
       {selecting && <div className="panel mb-4">
         <h2 className="font-semibold mb-2">Descargar contactos en vCard</h2>
         <p className="help mb-3">Nombre, apodo, teléfonos, correos, cumpleaños, ubicación y círculos guardados. El archivo .vcf contiene los datos de contacto; las notas y el historial permanecen en People.</p>

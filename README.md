@@ -40,6 +40,18 @@ Once opened through the tunnel, the browser offers to install it (PWA).
 
 ## What it does
 
+In **Personas**, **Buscar duplicados** opens an explicit query over the whole
+address book through the existing `find_duplicate_people` engine and
+`GET /api/people/duplicates`. Similarity threshold, archived contacts and limit
+use the native filters; the report shows served/total pairs, scanned contacts,
+native reasons, both profile links and the history-based suggestion to retain.
+Similarity is a heuristic score. Search never merges or deletes a profile;
+manual merge remains in each profile. Closing/reopening keeps query filters and
+results, and the existing name/circle search, vCard export and copilot remain.
+The engine's existing legacy-alias normalization (`ensureNorms`) is unchanged;
+querying does not imply a globally byte-identical database. No new backend,
+dependency, model or MCP tool.
+
 - **Personas** — instant search (accent-insensitive, matches partial names anywhere in a word, plus nickname and alias), circle chips as a filter, cards with name, circles, "last contact 12 days ago" and a birthday-soon badge, and a quick new-person form.
 - **Persona page** — a live conversation brief combining facts, five recent contacts and open reminders; header (name, nickname, circles, birthday, location, desired contact cadence) editable as one form; summary and notes as textareas that save on blur; facts as an editable key/value list ("le gusta" / "el senderismo"); a contact timeline with a one-line add form ("he hablado hoy"); reminders with due date and a "done" checkbox; an alias editor (WhatsApp, e-mail, phone, other handle); archive, merge-with-a-duplicate and delete.
 - **Commitments** — who promised what to whom and by when, in two directions: what you owe a person (`i_owe`) and what a person owes you (`owed_to_me`). A page with filters (direction, status, person, overdue, text), a review queue, a form to add one, and the two ways to bring them in (below); a *Compromisos* section on every person page; a badge on the navigation with overdue items and proposals waiting. See *Commitments* below.

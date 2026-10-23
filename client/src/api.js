@@ -19,6 +19,7 @@ const qs = (params) => {
 export const api = {
   state: () => request("GET", "/api/state"),
   people: {
+    duplicates: (filter) => request("GET", `/api/people/duplicates${qs(filter)}`),
     list: (filter) => request("GET", `/api/people${qs(filter)}`),
     get: (id) => request("GET", `/api/people/${id}`),
     brief: (id) => request("GET", `/api/people/${id}/brief`),
