@@ -1,11 +1,12 @@
 // The four repeatable sections of a person's page: facts, aliases,
 // interactions and reminders. Each keeps its own small add-form and calls
 // back into Persona.jsx to reload the record after a write.
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useId, useState } from "react";
 import { api } from "../api.js";
 import { Field, useAction } from "./ui.jsx";
 import { CHANNELS, ALIAS_KINDS, REMINDER_KINDS, dateLabel, dateTimeLabel } from "../format.js";
 import { useCopilotContext, useCopilotRefresh } from "../copilot-hooks.js";
+import { interactionBody, interactionTime } from "../interaction-time.js";
 
 export function FactsSection({ person, reload, notify }) {
   const [form, setForm] = useState({ key: "", value: "" });
@@ -76,25 +77,35 @@ export function AliasesSection({ person, reload, notify }) {
 }
 
 export function InteractionsSection({ person, reload, notify }) {
-  const [form, setForm] = useState({ channel: "whatsapp", summary: "" });
+  const [form, setForm] = useState({ channel: "whatsapp", summary: "", local_at: "" });
   const [run, busy] = useAction(notify);
-  useCopilotContext(() => ({ editors: form.summary.trim() ? [{ kind: "interaction-new", object_id: null, person_id: person.id, dirty: true, fields: form }] : [] }));
+  const time = interactionTime(form.local_at);
+  const timeHelpId = useId();
+  useCopilotContext(() => ({ editors: form.summary.trim() || form.local_at || form.channel !== "whatsapp" ? [{ kind: "interaction-new", object_id: null, person_id: person.id, dirty: true, fields: { ...form, ...(time ? { at: time.at, time_zone: time.time_zone, utc_offset: time.utc_offset } : {}) } }] : [] }));
   const add = async (e) => {
     e.preventDefault();
-    const out = await run(() => api.interactions.add(person.id, form), "Contacto apuntado.");
-    if (out) { setForm({ channel: "whatsapp", summary: "" }); reload(); }
+    const out = await run(() => api.interactions.add(person.id, interactionBody(form)), "Contacto apuntado.");
+    if (out) { setForm({ channel: "whatsapp", summary: "", local_at: "" }); reload(); }
   };
   const remove = async (id) => { if (await run(() => api.interactions.remove(id), "Borrado.")) reload(); };
   return (
     <div>
-      <form onSubmit={add} className="mb-4 grid gap-2 sm:grid-cols-[140px_1fr_auto] sm:items-end">
+      <form onSubmit={add} className="mb-4">
+        <fieldset disabled={busy} className="grid min-w-0 gap-2 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-end">
         <Field label="Canal">
           <select className="field field-sm" value={form.channel} onChange={(e) => setForm((f) => ({ ...f, channel: e.target.value }))}>
             {Object.entries(CHANNELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </Field>
         <Field label="Qué hablasteis"><input className="field field-sm" value={form.summary} onChange={(e) => setForm((f) => ({ ...f, summary: e.target.value }))} placeholder="Un resumen breve" maxLength={2000} /></Field>
-        <button type="submit" className="btn btn-sm" disabled={busy}>He hablado hoy</button>
+        <Field label="Fecha y hora (opcional)" className="min-w-0 sm:col-span-2">
+          <input type="datetime-local" className="field field-sm min-w-0" value={form.local_at} onChange={(e) => setForm((f) => ({ ...f, local_at: e.target.value }))} aria-describedby={timeHelpId} />
+        </Field>
+        <p id={timeHelpId} className="help break-words sm:col-span-2" aria-live="polite">
+          {time ? `Se registrará el ${time.label} · ${time.time_zone} (${time.utc_offset}).` : form.local_at ? "Completa una fecha y hora válidas." : "Déjalo vacío para apuntar el contacto de ahora. Para uno anterior, elige su fecha y hora local."}
+        </p>
+        <button type="submit" className="btn btn-sm justify-self-start sm:col-span-2">{busy ? "Guardando…" : form.local_at ? "Registrar contacto" : "He hablado hoy"}</button>
+        </fieldset>
       </form>
       {person.interactions.length ? (
         <ul className="space-y-4">
