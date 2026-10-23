@@ -16,6 +16,7 @@ import { commitmentsFromMessages, MAX_BATCH } from "./whatsapp.js";
 import { runMailSync } from "./mailsync.js";
 import * as gifts from "./gifts.js";
 import { findDuplicatePeople } from "./duplicates.js";
+import { exportPeopleVcard, vcardSelection } from "./vcard.js";
 
 export const AGENT_INSTRUCTIONS = `People's Hoard is the user's private address book: who people are, what to remember about them, and when they last spoke.
 Resolve ambiguous names by asking the user which person they mean — never guess when find_people or get_person returns several candidates; two people can share a first name.
@@ -54,6 +55,9 @@ const RO = { readOnlyHint: true, idempotentHint: true };
 const personRef = z.string().trim().min(1).max(200).describe("Person id, exact name or a close match");
 
 export const TOOLS = [
+  tool("export_people_vcard",
+    "Export selected stored contacts as vCard 4.0 text (.vcf).\nDoes not modify records or send anything externally. Pass explicit person_ids from find_people/get_person. Includes name, nickname, phone and email aliases, birthday (also without year), location and circles. No inferred names, phone types or dates; no journal notes or interaction history. Returns UTF-8 content, count and filename.\nSinónimos: exportar contactos, descargar vcf, vCard, llevar contactos a una agenda",
+    vcardSelection, RO, exportPeopleVcard),
   tool(
     "find_people",
     "Search the address book by name, nickname or alias (fuzzy).\nSearch the address book by name, nickname or alias: fuzzy, accent-insensitive, matches partial names anywhere in the word. Returns candidates ranked by score; ask the user when more than one is plausible.\nSinónimos: quién es, buscar persona, contacto, amigo, familia, compañero de",

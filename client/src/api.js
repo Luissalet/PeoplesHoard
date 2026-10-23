@@ -26,6 +26,16 @@ export const api = {
     update: (id, data) => request("PATCH", `/api/people/${id}`, data),
     remove: (id) => request("DELETE", `/api/people/${id}`),
     merge: (keep_id, drop_id) => request("POST", "/api/people/merge", { keep_id, drop_id }),
+    downloadVcard: async (person_ids) => {
+      const response = await fetch("/api/people/vcard", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ person_ids }) });
+      if (!response.ok) { const error = await response.json(); throw new Error(error.error || "No se pudieron exportar los contactos."); }
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = url; link.download = person_ids.length === 1 ? "contacto.vcf" : "contactos.vcf";
+      document.body.append(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      return true;
+    },
   },
   aliases: {
     add: (personId, data) => request("POST", `/api/people/${personId}/aliases`, data),

@@ -20,6 +20,7 @@ import { commitmentsFromMessages } from "./whatsapp.js";
 import { runMailSync, mailSyncStatus, setMailSyncEnabled, mailSyncEnabled } from "./mailsync.js";
 import { getPublicUrl } from "./agenda.js";
 import { findDuplicatePeople } from "./duplicates.js";
+import { exportPeopleVcard } from "./vcard.js";
 
 // Express 4 does not catch a rejected promise: hand it to the error handler.
 const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
@@ -49,6 +50,12 @@ export function installRoutes(app, { version, dataDirConfigured }) {
   });
 
   // ---------- People ----------
+  const sendVcard = (res, input) => {
+    const result = exportPeopleVcard(input);
+    res.set("Content-Type", result.media_type).set("Content-Disposition", `attachment; filename="${result.filename}"`).send(result.text);
+  };
+  app.post("/api/people/vcard", (req, res) => sendVcard(res, req.body));
+  app.get("/api/people/:id/vcard", (req, res) => sendVcard(res, { person_ids: [req.params.id] }));
   app.get("/api/people", (req, res) => {
     res.json(people.listPeople({ q: req.query.q || "", circle: req.query.circle || "", archived: req.query.archived || "false" }));
   });

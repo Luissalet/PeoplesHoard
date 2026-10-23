@@ -45,6 +45,7 @@ Once opened through the tunnel, the browser offers to install it (PWA).
 - **Commitments** — who promised what to whom and by when, in two directions: what you owe a person (`i_owe`) and what a person owes you (`owed_to_me`). A page with filters (direction, status, person, overdue, text), a review queue, a form to add one, and the two ways to bring them in (below); a *Compromisos* section on every person page; a badge on the navigation with overdue items and proposals waiting. See *Commitments* below.
 - **Agenda** — upcoming birthdays with age when the year is known, reminders due, a *Compromisos* block (overdue and due this week) and an "abandonados" list of people you have not contacted within their desired cadence, with a one-click "he hablado hoy" that logs a quick interaction. **Descargar calendario** exports active birthdays as yearly events, open reminders and open commitments with a due day as dated events in an `.ics` file.
 - **Ajustes** — data folder and version, JSON export/import for backups.
+- **Contact export** — **Exportar contactos** in Personas lets you select the visible contacts and download a `.vcf`; **Descargar .vcf** on a person's page exports that contact. vCard 4.0 contains saved name, nickname, phone/e-mail aliases, birthday (including an unknown year), location and circles. Notes, facts and interaction history stay in People. The file keeps the same contact UID on repeated exports; no external service or synchronization is involved. The receiving address book decides whether to merge existing contacts.
 
 ### Commitments
 
@@ -93,6 +94,7 @@ All routes are JSON, validated with zod, and answer errors as `{ "error": "…" 
 | `GET/POST /api/commitments/sync` | State of the background sweep; `POST` runs one now. |
 | `GET /api/circles` | Circle names with counts. |
 | `GET /api/export` / `POST /api/import` | JSON backup and restore (people, aliases, facts, interactions, reminders and commitments). |
+| `POST /api/people/vcard` / `GET /api/people/:id/vcard` | Download selected `{ person_ids: [...] }` or one saved contact as UTF-8 `text/vcard` with an attachment filename. Selection order is retained and repeated ids are deduplicated. |
 | `GET/POST/PATCH/DELETE /api/gifts…` | Gift ideas: `GET /api/gifts?person=&status=`, `POST /api/people/:id/gifts`, `PATCH`/`DELETE /api/gifts/:id`, `POST /api/gifts/:id/watch`. |
 | `POST /api/meetings/from-minutes` | `{ minutes_id, generate? }`: the same as `people_from_minutes`. |
 | `GET/POST /api/mail-sync` | State of the mail pass; `POST` runs one now (`{ force }` also when switched off). |
@@ -133,11 +135,12 @@ Turn it off with `HOARD_COPILOT=0` (no `/api/copilot/*` routes, no button). The 
 
 `faustus-plugin.json` describes the app for Faustus (health check, launch hint and the MCP command with placeholders).
 
-Tools (27):
+Tools (30):
 
 | Tool | Purpose |
 | --- | --- |
 | `find_people` | Fuzzy, accent-insensitive, partial-name search over people, nicknames and aliases; returns scored candidates. |
+| `export_people_vcard` | Read-only vCard 4.0 export for explicit `person_ids`; returns `text`, `filename`, `media_type`, `count` and stable ids. Same native serializer as the UI/API; does not infer names, phone types or missing birthday years. |
 | `get_person` | Full record: facts, last 10 interactions, open reminders, open commitments both ways, days since last contact. |
 | `prepare_person_chat` | Compact conversation brief, recomputed after edits, with source ids and conflicting fact values flagged. |
 | `upsert_person` | Create or update a person by id/exact name; all fields besides name are partial. |

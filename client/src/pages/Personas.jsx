@@ -74,6 +74,8 @@ export default function Personas() {
   const [circle, setCircle] = useState("");
   const [people, setPeople] = useState([]);
   const [creating, setCreating] = useState(false);
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState([]);
   const [run, busy] = useAction(notify);
 
   const load = useCallback(async () => {
@@ -84,6 +86,7 @@ export default function Personas() {
     }
   }, [q, circle, notify]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { setSelected([]); }, [q, circle]);
   useCopilotRefresh(() => { load(); });
   useCopilotContext(() => ({ view: { filters: Object.fromEntries(Object.entries({ q, circle }).filter(([, v]) => v)) } }));
 
@@ -92,22 +95,33 @@ export default function Personas() {
     if (out) { setCreating(false); await Promise.all([load(), refresh()]); }
     return !!out;
   };
+  const selectedIds = people.filter((person) => selected.includes(person.id)).map((person) => person.id);
 
   return (
     <Page
       title="Personas"
       description="Quién es quién, qué sabes de cada persona y cuándo hablasteis por última vez."
-      actions={!creating && <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>Nueva persona</button>}
+      actions={!creating && <><button type="button" className="btn" disabled={!people.length} aria-expanded={selecting} onClick={() => { setSelecting(!selecting); setSelected([]); }}>Exportar contactos</button><button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>Nueva persona</button></>}
     >
       {creating && <div className="mb-4"><NewPersonForm onSubmit={create} onCancel={() => setCreating(false)} busy={busy} /></div>}
       <div className="mb-4 flex flex-col gap-3">
         <input className="field sm:max-w-[420px]" placeholder="Buscar por nombre, apodo o alias…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Buscar personas" />
         <CircleChips circles={circles || []} active={circle} onToggle={setCircle} />
       </div>
+      {selecting && <div className="panel mb-4">
+        <h2 className="font-semibold mb-2">Descargar contactos en vCard</h2>
+        <p className="help mb-3">Nombre, apodo, teléfonos, correos, cumpleaños, ubicación y círculos guardados. El archivo .vcf contiene los datos de contacto; las notas y el historial permanecen en People.</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2"><input type="checkbox" checked={people.length > 0 && selectedIds.length === people.length} onChange={(event) => setSelected(event.target.checked ? people.map((person) => person.id) : [])} />Seleccionar visibles</label>
+          <span className="help" role="status">{selectedIds.length} seleccionadas</span>
+          <button type="button" className="btn btn-primary" disabled={busy || !selectedIds.length} onClick={() => run(() => api.people.downloadVcard(selectedIds), "Archivo vCard descargado.")}>Descargar .vcf</button>
+          <button type="button" className="btn" onClick={() => { setSelecting(false); setSelected([]); }}>Cancelar</button>
+        </div>
+      </div>}
       <Section aside={<span className="help">{people.length} {people.length === 1 ? "persona" : "personas"}</span>}>
         {people.length ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {people.map((p) => <PersonCard key={p.id} person={p} />)}
+            {people.map((p) => <div key={p.id}>{selecting && <label className="flex items-center gap-2 help mb-2"><input type="checkbox" aria-label={`Seleccionar ${p.name}`} checked={selectedIds.includes(p.id)} onChange={(event) => setSelected((current) => event.target.checked ? [...current, p.id] : current.filter((id) => id !== p.id))} />Seleccionar</label>}<PersonCard person={p} /></div>)}
           </div>
         ) : (
           <Empty

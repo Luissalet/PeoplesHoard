@@ -203,6 +203,7 @@ export default function Persona({ id }) {
         !editing && (
           <>
             <button type="button" className="btn" onClick={() => setEditing(true)}>Editar datos</button>
+            <button type="button" className="btn" disabled={busy} title="Nombre, apodo, teléfonos, correos, cumpleaños, ubicación y círculos guardados" onClick={() => run(() => api.people.downloadVcard([id]), "Contacto descargado en vCard.")}>Descargar .vcf</button>
             <button type="button" className="btn" onClick={() => setMerging((v) => !v)} aria-expanded={merging}>Fusionar</button>
             <button type="button" className="btn" onClick={toggleArchive}>{person.archived ? "Recuperar" : "Archivar"}</button>
             <button type="button" className="btn btn-danger" onClick={() => setConfirmingDelete(true)}>Borrar</button>

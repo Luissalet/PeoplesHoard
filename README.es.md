@@ -45,6 +45,7 @@ Una vez abierta a través del túnel, el navegador ofrece instalarla (PWA).
 - **Compromisos** — quién prometió qué a quién y para cuándo, en los dos sentidos: lo que tú debes a una persona (`i_owe`) y lo que ella te debe a ti (`owed_to_me`). Una página con filtros (sentido, estado, persona, vencidos, texto), una cola de revisión, un formulario para anotar uno y las dos vías para traerlos (abajo); una sección *Compromisos* en cada ficha; y una insignia en la navegación con los vencidos y las propuestas en espera.
 - **Agenda** — próximos cumpleaños con la edad cuando se conoce el año, recordatorios pendientes, un bloque *Compromisos* (vencidos y de esta semana) y una lista de «abandonados»: personas con las que no habláis dentro de la cadencia deseada, con un botón «he hablado hoy» que apunta un contacto rápido al instante. **Descargar calendario** exporta los cumpleaños, los recordatorios abiertos y los compromisos abiertos con fecha a un archivo `.ics`.
 - **Ajustes** — carpeta de datos y versión, exportación/importación JSON para copias de seguridad.
+- **Exportar contactos** — en Personas permite seleccionar los contactos visibles y descargar un `.vcf`; **Descargar .vcf** en la ficha exporta ese contacto. vCard 4.0 contiene nombre, apodo, alias de teléfono/correo, cumpleaños (también sin año), ubicación y círculos guardados. Las notas, datos e historial de contactos permanecen en People. El UID se conserva entre exportaciones; no interviene ningún servicio externo ni sincronización. La agenda receptora decide si fusiona contactos existentes.
 
 ### Compromisos
 
@@ -96,11 +97,12 @@ Se apaga con `HOARD_COPILOT=0` (sin rutas `/api/copilot/*` y sin botón). El cli
 
 `faustus-plugin.json` describe la aplicación para Faustus (comprobación de salud, arranque y comando MCP con marcadores).
 
-Herramientas (27):
+Herramientas (30):
 
 | Herramienta | Uso |
 | --- | --- |
 | `find_people` | Búsqueda difusa, sin acentos, por nombre parcial sobre personas, apodos y alias; devuelve candidatos puntuados. |
+| `export_people_vcard` | Exportación vCard 4.0 de solo lectura para `person_ids` explícitos; devuelve `text`, `filename`, `media_type`, `count` e ids estables. Comparte el serializador nativo de UI/API; no infiere apellidos, tipos de teléfono ni años de nacimiento. API: `POST /api/people/vcard` con `{ person_ids: [...] }` o `GET /api/people/:id/vcard` devuelve el archivo UTF-8 como descarga. Conserva orden y deduplica ids. |
 | `get_person` | Ficha completa: datos, últimos 10 contactos, recordatorios abiertos, compromisos abiertos en los dos sentidos, días desde el último contacto. |
 | `prepare_person_chat` | Preparación breve y actualizada para hablar con alguien, con referencias a los registros y datos discrepantes señalados. |
 | `upsert_person` | Crear o actualizar una persona por id o nombre exacto; todos los campos salvo el nombre son parciales. |
