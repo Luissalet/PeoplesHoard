@@ -2,7 +2,7 @@
 
 THESIS: descargar todos los contactos registrados que coinciden con los filtros, aunque ocupen muchas páginas.
 
-OWN-WORLD: mantener la agenda de papel cálido, terracota, Segoe UI, campos etiquetados y botones existentes de DESIGN.md.
+OWN-WORLD: mantener el fondo cálido oscuro vigente, paneles marrones, acento terracota, títulos serif y controles sans del CSS construido; campos etiquetados y botones existentes. DESIGN.md heredado debe registrar este mundo real, no forzar la antigua variante clara.
 
 STORY: consultar el historial, elegir JSON o CSV y descargar; contar toda la coincidencia y explicar el alcance. Conservar filtros si falla; invalidar descargas pendientes al cambiar de consulta o cerrar.
 
