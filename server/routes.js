@@ -159,6 +159,10 @@ export function installRoutes(app, { version, dataDirConfigured }) {
     const out = await commitments.ingestFromFunes(body.session_id, { regenerate: !!body.regenerate, replace: !!body.replace });
     res.json({ ...out, pending_review: commitments.pendingReviewCount() });
   }));
+  // The firm commitments Talos found in a meeting (proposals, questions, decisions and requirements are rejected with the reason).
+  app.post("/api/commitments/import-talos", (req, res) => {
+    res.json({ ...commitments.importFromTalos(req.body || {}), pending_review: commitments.pendingReviewCount() });
+  });
   app.post("/api/commitments/extract", asyncRoute(async (req, res) => {
     const body = req.body || {};
     res.json(await commitments.extractFromText({ text: body.text, person_hint: body.person_hint || "" }));

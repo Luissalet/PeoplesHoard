@@ -5,3 +5,7 @@ The native API and MCP tool catalog are documented in `README.md`. The stdio bri
 The shared assistant uses `/api/copilot/info`, `/api/copilot/panel.js`, `/api/copilot/launcher.js` and `/api/copilot/proxy`. Identity and credentials remain on the server; conversations, drafts and model requests live in Faustus, using the global LLM configured on Sparks.
 
 Context contains real people, commitments and gifts from the native API together with complete unsaved form fields. Creation and missing objects do not invent references. Turn completion refreshes the current page without resetting typed drafts. Partial person edits preserve other fields changed by an agent. Summary and notes autosaves only acknowledge the text actually sent after a successful save; later edits and drafts after a failed response remain available.
+
+## Talos import
+
+`POST /api/commitments/import-talos` (tool `commitments_import_talos`): body `{ commitments | items: [...], meeting?: { title, at, session_id } }` with the `talos.commitment/1` items from Talos's `scribe_requirements` (`format: commitments`). Response: `{ status, imported, queued, duplicates, commitments, rejected: [{ item_id, code, reason }], pending_review }`. Only `kind: commitment` with `firm: true` is accepted; rejection codes are `invalid`, `proposal`, `not_commitment`, `not_firm`, `no_text`, `no_source_ref`. Deduplication key: `talos:<source.ref>`. 400 when neither `commitments` nor `items` is a non-empty array.

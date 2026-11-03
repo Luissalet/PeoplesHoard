@@ -26,7 +26,7 @@ If the book may hold the same person twice, find_duplicate_people lists likely p
 Call find_people or get_person before writing, so a fact, alias or interaction lands on the right person.
 Who the person is goes in "summary" ("vecina del cuarto", "compañero del máster", "amigo de la infancia") and their group in "circles" (familia, amigos, trabajo, vecinos, ...); tastes, children, jobs and similar go in facts. When the user describes a new person, fill summary and circles in the same upsert_person call.
 merge_people and delete_person are irreversible: confirm with the user before calling them.
-Commitments are promises: "i_owe" is what the user must do for someone, "owed_to_me" is what someone owes the user. Record one with commitment_add only when the user said it (or confirms it), with the person and, if given, the day; never invent a deadline: pass due_text in the user's words ("el viernes") and let the server turn it into a date. Before saying what is pending, call commitments_digest or commitments_list; when the user asks how to catch up with someone, prepare_person_chat already lists the open commitments both ways. Promises made in WhatsApp chats come in with commitments_from_messages (the caller hands over the messages it read; this app never reads WhatsApp itself and keeps no message text except the sentence that makes each promise). Meeting minutes from Funes come in with commitments_ingest_minutes (give the session id) and text the user pastes goes through commitments_extract_text: both only propose, and commitments_review shows what waits for a decision (a name that matches nobody, several people with the same name): ask the user before resolving it.
+Commitments are promises: "i_owe" is what the user must do for someone, "owed_to_me" is what someone owes the user. Record one with commitment_add only when the user said it (or confirms it), with the person and, if given, the day; never invent a deadline: pass due_text in the user's words ("el viernes") and let the server turn it into a date. Before saying what is pending, call commitments_digest or commitments_list; when the user asks how to catch up with someone, prepare_person_chat already lists the open commitments both ways. Promises made in WhatsApp chats come in with commitments_from_messages (the caller hands over the messages it read; this app never reads WhatsApp itself and keeps no message text except the sentence that makes each promise). Firm commitments that Talos found in a meeting (its scribe_requirements, format commitments) come in with commitments_import_talos: only firm commitments are imported, proposals (podríamos, could, conditionals), questions, decisions and requirements are rejected with the reason, and the same source reference is never imported twice. Meeting minutes from Funes come in with commitments_ingest_minutes (give the session id) and text the user pastes goes through commitments_extract_text: both only propose, and commitments_review shows what waits for a decision (a name that matches nobody, several people with the same name): ask the user before resolving it.
 people_from_minutes puts "Reunión: <title>" on the timeline of each attendee of a meeting who is in the book (it takes the id of the minutes, which Funes announces); it never creates people, and attendees it cannot match are returned as unmatched or ambiguous. contacts_sync_mail reads from the hub the mail sent by the people in the book and keeps only the date, the channel and the subject as the last contact; it never reads or stores a body.
 Gift ideas: save one with gift_idea_add when the user mentions something a person would like (or they say what to give); list them with gift_ideas; gift_watch asks Tantalus to watch the idea's price or stock. Some days before a birthday the saved ideas reach the daily digest by themselves.`;
 
@@ -300,6 +300,20 @@ export const TOOLS = [
     }),
     { openWorldHint: true, timeoutMs: 16 * 60 * 1000 },
     ({ session_id, regenerate, replace }) => commitments.ingestFromFunes(session_id, { regenerate, replace }),
+  ),
+
+  tool(
+    "commitments_import_talos",
+    "Import the firm commitments Talos found in a meeting (importar compromisos de Talos).\nTakes the `commitments` of Talos's scribe_requirements (format commitments) or the `items` of its plain format. Only firm commitments are imported; proposals (podríamos, could, conditionals), questions, decisions and requirements come back in `rejected` with the reason. Own promises are i_owe, a named owner is owed_to_me; owner otros or an unclear name go to commitments_review. Deduplicated by the source reference: safe to repeat.\nSinónimos: importar compromisos de la reunión, compromisos de Talos, pasar los compromisos de la reunión a la agenda, qué prometimos en la reunión",
+    z.object({
+      commitments: z.array(z.record(z.string(), z.any())).min(1).max(500).describe("Items as Talos returns them: { kind: \"commitment\", firm: true, text, owner (yo | a name | otros), counterpart, due (YYYY-MM-DD), due_text, source: { ref (required, the dedupe key), session_id, title, start_s, quote, at? } }"),
+      meeting: z.object({
+        title: z.string().max(200).optional(), at: z.string().max(40).optional().describe("Meeting date or start (ISO); with source.start_s it dates each promise"),
+        session_id: z.string().max(100).optional(),
+      }).optional(),
+    }),
+    { openWorldHint: false },
+    ({ commitments: list, meeting }) => commitments.importFromTalos({ commitments: list, meeting }),
   ),
 
   tool(
