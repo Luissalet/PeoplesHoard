@@ -370,8 +370,56 @@ export function clearUntouched(sessionId) {
 /** "Reunión: <title>" on the person's timeline, once per meeting (see interactions.logMeetingOnce). */
 function logMeeting(personId, meeting) {
   if (!meeting || !meeting.title) return false;
-  const ref = meeting.session_id ? `hoard://funes/minutes/${meeting.session_id}` : null;
+  const ref = meeting.ref || (meeting.session_id ? `hoard://funes/minutes/${meeting.session_id}` : null);
   return !!logMeetingOnce(personId, { title: meeting.title, at: meeting.at, ref });
+}
+
+/**
+ * Where one promise read from a meeting goes. Nothing goes straight into the list unless both the direction and the person are certain:
+ *   owner "yo"      -> i_owe, and the counterpart must resolve to one person;
+ *   owner a person  -> owed_to_me, resolved by name (a promise between two third parties waits);
+ *   anything else (no owner, "otros", a speaker label, an unknown or ambiguous name) waits in the review queue for the user.
+ * Returns { outcome: "created" | "queued" | "duplicate", commitment?, review?, personId? }. The same `key` never makes a second commitment or review item.
+ */
+function placeAction({ text, owner, counterpart, due, due_text, source, meeting, key, today, kind, sourceKind, sourceRef, sourceQuote }) {
+  const base = { text, due, due_text, source, meeting };
+  let direction = null;
+  let nameRaw = "";
+  let reason = null;
+  let named;
+  if (isMe(owner)) {
+    direction = "i_owe";
+    nameRaw = isAnonymous(counterpart) || isMe(counterpart) || isLabel(counterpart) ? "" : counterpart;
+    named = resolveName(nameRaw);
+    if (!nameRaw) reason = "no_person"; // a promise I made, but the minutes do not say to whom
+  } else if (owner && !isAnonymous(owner) && !isLabel(owner)) {
+    direction = "owed_to_me";
+    nameRaw = owner;
+    named = resolveName(nameRaw);
+    if (!isAnonymous(counterpart) && !isMe(counterpart) && !isLabel(counterpart)) reason = "third_party"; // between two other people
+  } else {
+    // The minutes could not say who commits. The counterpart, if it is a person, is offered as the likely one.
+    reason = "unassigned";
+    nameRaw = isAnonymous(counterpart) || isMe(counterpart) || isLabel(counterpart) ? "" : counterpart;
+    named = resolveName(nameRaw);
+  }
+  if (reason || named.state === "ambiguous" || named.state === "unknown" || named.state === "none") {
+    const review = queueReview({
+      kind,
+      reason: reason || (named.state === "none" ? "no_person" : named.state),
+      proposal: { ...base, direction, person_name_raw: nameRaw, counterpart },
+      candidates: named.state === "person" ? [named.person] : named.candidates,
+      dedupe: key,
+    });
+    return review ? { outcome: "queued", review } : { outcome: "duplicate" };
+  }
+  const personId = named.person.id;
+  const added = addCommitment({
+    direction, person_id: personId, person_name_raw: "", text, due, due_text,
+    source_kind: sourceKind, source_ref: sourceRef, source_quote: sourceQuote,
+    ...(source.at ? { source_at: source.at } : {}),
+  }, { dedupe: key, today, resolve: false }); // the source resolved the day against the meeting date; "el viernes" stays words if it could not
+  return added.created ? { outcome: "created", commitment: added.commitment, personId } : { outcome: "duplicate" };
 }
 
 const dueOf = (item) => (item.due_date && /^\d{4}-\d{2}-\d{2}$/.test(item.due_date) ? item.due_date : null);
@@ -401,57 +449,94 @@ export function ingestMinutes(minutes, { today = todayLocal(), replace = false }
     const key = dedupeKey("funes", ref, text);
     const owner = String(item.owner || "").trim();
     const counterpart = String(item.counterpart || "").trim();
-    const base = { text, due: dueOf(item), due_text: String(item.due_text || ""), source, meeting };
-
-    // Nothing goes straight into the list unless both the direction and the person are certain:
-    //   owner "yo"      -> i_owe, and the counterpart must resolve to one person;
-    //   owner a person  -> owed_to_me, resolved by name (a promise between two third parties waits);
-    //   anything else (no owner, "otros", a speaker label, an unknown or ambiguous name) waits for the user.
-    let direction = null;
-    let nameRaw = "";
-    let reason = null;
-    let named;
-    if (isMe(owner)) {
-      direction = "i_owe";
-      nameRaw = isAnonymous(counterpart) || isMe(counterpart) || isLabel(counterpart) ? "" : counterpart;
-      named = resolveName(nameRaw);
-      if (!nameRaw) reason = "no_person"; // a promise I made, but the minutes do not say to whom
-    } else if (owner && !isAnonymous(owner) && !isLabel(owner)) {
-      direction = "owed_to_me";
-      nameRaw = owner;
-      named = resolveName(nameRaw);
-      if (!isAnonymous(counterpart) && !isMe(counterpart) && !isLabel(counterpart)) reason = "third_party"; // between two other people
-    } else {
-      // The minutes could not say who commits. The counterpart, if it is a person, is offered as the likely one.
-      reason = "unassigned";
-      nameRaw = isAnonymous(counterpart) || isMe(counterpart) || isLabel(counterpart) ? "" : counterpart;
-      named = resolveName(nameRaw);
-    }
-    if (reason || named.state === "ambiguous" || named.state === "unknown" || named.state === "none") {
-      const review = queueReview({
-        kind: "minutes",
-        reason: reason || (named.state === "none" ? "no_person" : named.state),
-        proposal: { ...base, direction, person_name_raw: nameRaw, counterpart },
-        candidates: named.state === "person" ? [named.person] : named.candidates,
-        dedupe: key,
-      });
-      if (review) { result.queued++; result.review.push(review.id); } else result.duplicates++;
-      continue;
-    }
-    const personId = named.person.id;
-    const added = addCommitment({
-      direction, person_id: personId, person_name_raw: "", text, due: base.due, due_text: base.due_text,
-      source_kind: "funes", source_ref: ref, source_quote: source.quote,
-    }, { dedupe: key, today, resolve: false }); // Funes resolved the day against the meeting date; "el viernes" stays words if it could not
-    if (!added.created) { result.duplicates++; continue; }
+    const placed = placeAction({
+      text, owner, counterpart, due: dueOf(item), due_text: String(item.due_text || ""), source, meeting, key, today,
+      kind: "minutes", sourceKind: "funes", sourceRef: ref, sourceQuote: source.quote,
+    });
+    if (placed.outcome === "queued") { result.queued++; result.review.push(placed.review.id); continue; }
+    if (placed.outcome === "duplicate") { result.duplicates++; continue; }
     result.created++;
-    result.commitments.push(added.commitment.id);
-    if (personId && !met.has(personId)) {
-      met.add(personId);
-      if (logMeeting(personId, meeting)) result.interactions++;
+    result.commitments.push(placed.commitment.id);
+    if (placed.personId && !met.has(placed.personId)) {
+      met.add(placed.personId);
+      if (logMeeting(placed.personId, meeting)) result.interactions++;
     }
   }
   return result;
+}
+
+// ----------------------------------------------------- import from Talos --
+
+export const TALOS_SCHEMA = "talos.commitment/1";
+
+/** Why a Talos item is not importable, or null when it is a firm commitment. Only firm commitments are: a proposal, a question, a decision or a requirement never becomes one. */
+export function talosRejection(item) {
+  if (!item || typeof item !== "object" || Array.isArray(item)) return { code: "invalid", reason: "El elemento no es un objeto." };
+  const kind = String(item.kind || "");
+  if (kind === "proposal") return { code: "proposal", reason: "Es una propuesta (condicional, con reservas o solo sugerida), no un compromiso firme." };
+  if (kind !== "commitment") return { code: "not_commitment", reason: `Es ${kind ? `«${kind}»` : "un elemento sin tipo"}, no un compromiso.` };
+  if (item.firm !== true) return { code: "not_firm", reason: "No está marcado como compromiso firme." };
+  if (!String(item.text || "").trim()) return { code: "no_text", reason: "No trae el texto del compromiso." };
+  const ref = String(item.source?.ref || "").trim();
+  if (!ref) return { code: "no_source_ref", reason: "Falta la referencia de origen (source.ref): sin ella no se puede evitar duplicarlo." };
+  return null;
+}
+
+const iso = (value) => {
+  const t = Date.parse(String(value || ""));
+  return Number.isNaN(t) ? null : new Date(t).toISOString();
+};
+
+/**
+ * Import the firm commitments Talos found in a meeting (its `scribe_requirements` with format "commitments", or the `items` of the plain format).
+ * Each one lands like a commitment read from minutes: the user's own (owner "yo") are i_owe with the counterpart as the person, a named owner is
+ * owed_to_me, and anything uncertain (owner "otros", no counterpart, a name matching nobody or several people) waits in the review queue.
+ * Deduplicated by the source reference (`source.ref`, `talos:<session>#<item>`): importing the same item again changes nothing, whatever its status
+ * now. Rejected items come back with the reason. Nothing here calls Talos.
+ */
+export function importFromTalos(payload, { today = todayLocal() } = {}) {
+  const body = payload && typeof payload === "object" ? payload : {};
+  const list = Array.isArray(body.commitments) ? body.commitments : Array.isArray(body.items) ? body.items : null;
+  if (!list) fail("Envía `commitments` (la lista de compromisos de Talos) o `items`.");
+  if (list.length > 500) fail("Demasiados elementos (máximo 500 por llamada).");
+  const first = list.find((i) => i && typeof i === "object" && i.source && i.source.session_id);
+  const meeting = {
+    title: String(body.meeting?.title || body.title || first?.source?.title || "").trim(),
+    at: body.meeting?.at || body.meeting_date || body.started_at || null,
+    session_id: String(body.meeting?.session_id || first?.source?.session_id || ""),
+  };
+  if (meeting.session_id) meeting.ref = `hoard://talos/session/${meeting.session_id}`;
+  const result = { received: list.length, imported: 0, queued: 0, duplicates: 0, rejected: [], interactions: 0, commitments: [], review: [] };
+  const met = new Set();
+  for (const item of list) {
+    const why = talosRejection(item);
+    if (why) {
+      result.rejected.push({ item_id: item?.item_id || item?.id || null, kind: item?.kind || null, text: String(item?.text || "").slice(0, 200), ...why });
+      continue;
+    }
+    const text = String(item.text).trim().slice(0, 2000);
+    const ref = String(item.source.ref).trim().slice(0, 200);
+    const startS = Number(item.source.start_s);
+    // the moment of the promise: the meeting's start plus the offset of its segment, when both are known
+    const meetingAt = Date.parse(String(meeting.at || ""));
+    const at = item.source.at ? iso(item.source.at) : Number.isNaN(meetingAt) || !Number.isFinite(startS) ? iso(meeting.at) : new Date(meetingAt + startS * 1000).toISOString();
+    const quote = String(item.source.quote || "").slice(0, 1000);
+    const due = typeof item.due === "string" && /^\d{4}-\d{2}-\d{2}$/.test(item.due) ? item.due : null;
+    const placed = placeAction({
+      text, owner: String(item.owner || "").trim(), counterpart: String(item.counterpart || "").trim(), due, due_text: String(item.due_text || "").slice(0, 120),
+      source: { kind: "funes", ref, quote, ...(at ? { at } : {}) }, meeting, key: `talos:${ref}`, today,
+      kind: "minutes", sourceKind: "funes", sourceRef: ref, sourceQuote: quote,
+    });
+    if (placed.outcome === "queued") { result.queued++; result.review.push(placed.review.id); continue; }
+    if (placed.outcome === "duplicate") { result.duplicates++; continue; }
+    result.imported++;
+    result.commitments.push(placed.commitment.id);
+    if (placed.personId && !met.has(placed.personId)) {
+      met.add(placed.personId);
+      if (logMeeting(placed.personId, meeting)) result.interactions++;
+    }
+  }
+  return { status: "imported", ...result };
 }
 
 /** Ask Funes (through the hub) for the minutes of a session and ingest them. Never throws for "the other side is down". */
