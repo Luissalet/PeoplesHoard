@@ -82,7 +82,18 @@ dependency, model or MCP tool.
 - **Persona page** — a live conversation brief combining facts, five recent contacts and open reminders; header (name, nickname, circles, birthday, location, desired contact cadence) editable as one form; summary and notes as textareas that save on blur; facts as an editable key/value list ("le gusta" / "el senderismo"); a contact timeline with a one-line add form ("he hablado hoy"); reminders with due date and a "done" checkbox; an alias editor (WhatsApp, e-mail, phone, other handle); archive, merge-with-a-duplicate and delete.
 - **Commitments** — who promised what to whom and by when, in two directions: what you owe a person (`i_owe`) and what a person owes you (`owed_to_me`). A page with filters (direction, status, person, overdue, text), a review queue, a form to add one, and the two ways to bring them in (below); a *Compromisos* section on every person page; a badge on the navigation with overdue items and proposals waiting. See *Commitments* below.
 - **Agenda** — upcoming birthdays with age when the year is known, reminders due, a *Compromisos* block (overdue and due this week) and an "abandonados" list of people you have not contacted within their desired cadence, with a one-click "he hablado hoy" that logs a quick interaction. **Descargar calendario** exports active birthdays as yearly events, open reminders and open commitments with a due day as dated events in an `.ics` file.
-- **Ajustes** — data folder and version, JSON export/import for backups.
+- **Ajustes** — data folder and version, JSON export/import for backups (special dates included), and the switches below for nudges, cooling contacts and the last contact from WhatsApp.
+- **Prepárame** — a button on a person's page: the family model (through the hub) writes 3-7 lines before you see someone — what you talked about last, what you owe them and what they owe you, open reminders, upcoming dates — and an opening question. Without a model it shows the same material as a plain outline.
+- **Special dates** — per person, besides the birthday: anniversary, saint's day, a one-off day (`YYYY-MM-DD`, or `--MM-DD` without a year; yearly or once). They show on the Agenda, the `.ics` export, the family agenda and the daily digest.
+- **Contact import** — **Importar contactos** in Personas reads a `.vcf` (vCard 2.1/3.0/4.0, quoted-printable included), shows what would happen and imports on a click. Each card joins the person with the same UID (from this app's export), e-mail or phone, or the same exact name; otherwise a new person. It only fills what is empty (birthday, nickname, place), adds missing circles, e-mails and phones, keeps organisation, job title and note as facts and an `ANNIVERSARY` as a special date. A handle that belongs to someone else is never moved; a match by handle under a quite different name is flagged in the preview.
+- **Balance** — on Compromisos, *Qué debo* / *Qué me deben*: open commitments grouped by person with overdue counts; *Ver en la lista* filters the list.
+
+### Working on its own
+
+- **Nudges to the daily digest.** Every hour, while the app runs, each of these goes once to the hub as a `digest.item` event (`watch: "people"`, with a link to the person): commitments due today and overdue (both ways; a WhatsApp promise is named only by its action), reminders for today, birthdays and special dates a week ahead and on the day, and people the relationship is cooling with. A line is remembered only when the hub took it, so a hub that was away gets it later; more than three cooling people go out as one line. Ajustes switches it off; the Agenda shows how many are pending and sends them now. `GET /api/nudges`, `POST /api/nudges/send`, tool `people_nudges`.
+- **Cooling contacts.** People without a cadence of their own, with at least two contacts on the timeline, whose last contact is older than `cooling_days` (90 by default, 0 = off): "hace 5 meses que no hablas con…". The Agenda lists them under *Se enfrían* with *He hablado hoy*. People with a cadence stay in *Abandonados*.
+- **Last contact from WhatsApp.** The message batches Faustus already hands over for commitments (`commitments_from_messages`, only chats enabled there) also move the last contact of the people they are with: one *Mensajes de WhatsApp* line per person and day at the time of the latest message, never any message text; groups, unknown numbers and nickname-only chats do not count. Setting *whatsapp_last_contact* (on by default). Hoard Link itself offers the hub's mail (used for the last contact by mail) but no way to read Faustus's chats: they only arrive when Faustus sends them.
+- **Merge** now also takes from the duplicate what the kept person lacks (nickname, birthday, place, how you met, summary, cadence), appends its notes and moves its special dates.
 - **Contact export** — **Exportar contactos** in Personas lets you select the visible contacts and download a `.vcf`; **Descargar .vcf** on a person's page exports that contact. vCard 4.0 contains saved name, nickname, phone/e-mail aliases, birthday (including an unknown year), location and circles. Notes, facts and interaction history stay in People. The file keeps the same contact UID on repeated exports; no external service or synchronization is involved. The receiving address book decides whether to merge existing contacts.
 
 ### Commitments
@@ -122,7 +133,11 @@ All routes are JSON, validated with zod, and answer errors as `{ "error": "…" 
 | `POST /api/people/merge` | `{ keep_id, drop_id }` — merges a duplicate into a person. |
 | `POST/PATCH/DELETE /api/people/:id/aliases[/:id]`, `/facts`, `/interactions`, `/reminders` | Nested CRUD for each person. |
 | `GET /api/resolve?name=` | Find a person by name/alias: exact → alias → fuzzy, with candidates and scores. |
-| `GET /api/upcoming?days=30` | Birthdays in the window (with age when known), reminders due, and "neglected" people. |
+| `GET /api/upcoming?days=30` | Birthdays and special dates in the window (with age/years when known), reminders due, "neglected" people (cadence) and `cooling` people. |
+| `POST /api/people/:id/prepare` | «Prepárame»: `{ status: ok \| no_model \| hub_down \| error, text, model, outline, counts }`. |
+| `POST /api/people/import-vcard` | `{ text, apply? }`: vCard import; `apply: false` (default) only reports what would happen. |
+| `POST /api/people/:id/dates`, `PATCH/DELETE /api/dates/:id`, `GET /api/dates/upcoming?days=` | Special dates. |
+| `GET /api/nudges`, `POST /api/nudges/send` | What deserves a word today and whether it already went to the digest; send now. |
 | `GET /api/calendar.ics` | Download all active birthdays, open reminders and open commitments with a due day as iCalendar events; Feb 29 birthdays recur on leap years. |
 | `GET/POST /api/commitments`, `GET/PATCH/DELETE /api/commitments/:id` | Commitments. List filters: `person`, `direction`, `status` (`open` default, `done`, `dropped`, `all`), `overdue=1`, `due_before`, `q`. The list also returns `pending_review`. |
 | `GET /api/commitments/digest?days=7` | Overdue and upcoming, grouped by person, with ready-to-say lines. |
@@ -138,7 +153,7 @@ All routes are JSON, validated with zod, and answer errors as `{ "error": "…" 
 | `GET/POST/PATCH/DELETE /api/gifts…` | Gift ideas: `GET /api/gifts?person=&status=`, `POST /api/people/:id/gifts`, `PATCH`/`DELETE /api/gifts/:id`, `POST /api/gifts/:id/watch`. |
 | `POST /api/meetings/from-minutes` | `{ minutes_id, generate? }`: the same as `people_from_minutes`. |
 | `GET/POST /api/mail-sync` | State of the mail pass; `POST` runs one now (`{ force }` also when switched off). |
-| `GET/POST /api/settings` | `{ gift_days_before, mail_sync }`. |
+| `GET/POST /api/settings` | `{ gift_days_before, mail_sync, nudges, cooling_days, whatsapp_last_contact }`. |
 | `GET /api/family/agenda` | The family agenda contract (birthdays, follow-ups, commitments with a day); needs this app's own bearer token. |
 | `GET /api/agent/tools` | Tool catalogue (name, description, JSON schema, annotations) and the assistant instructions. |
 | `POST /api/agent/call` | `{ name, arguments }` with `Authorization: Bearer <token>`; used by the MCP bridge. |
@@ -175,7 +190,7 @@ Turn it off with `HOARD_COPILOT=0` (no `/api/copilot/*` routes, no button). The 
 
 `faustus-plugin.json` describes the app for Faustus (health check, launch hint and the MCP command with placeholders).
 
-Tools (32):
+Tools (38):
 
 | Tool | Purpose |
 | --- | --- |
@@ -209,6 +224,10 @@ Tools (32):
 | `find_duplicate_people` | Likely duplicate pairs (similar names, the same e-mail or phone written differently, the same birthday) with score, reasons and which one to keep; read-only, `GET /api/people/duplicates` is the same. |
 | `merge_people` | Merge a duplicate into another person; commitments move too (destructive). |
 | `delete_person` | Delete a person and everything linked to them; commitments stay with the name as written (destructive). |
+| `person_date_add` / `person_date_remove` | Save a special date (label, `YYYY-MM-DD` or `--MM-DD`, yearly or once; the same one is not saved twice) / remove it by id. |
+| `people_nudges` | Read-only: commitments due or overdue, reminders for today, birthdays and special dates this week, cooling people; each says whether it was sent. |
+| `prepare_to_meet` | The written catch-up before seeing someone (family model through the hub); outline only when no model answers. |
+| `import_people_vcard` | Import a `.vcf` text; `apply: false` first to preview. |
 
 Every description ends with a `Sinónimos:` line of Spanish words. Ambiguous names return `candidates` so the assistant can ask instead of guessing — two people can share a first name.
 
