@@ -13,6 +13,7 @@ const EXPECTED = [
   "commitments_ingest_minutes", "commitments_import_talos", "commitments_extract_text", "commitments_from_messages", "commitments_digest",
   "people_from_minutes", "contacts_sync_mail", "gift_idea_add", "gift_ideas", "gift_watch",
   "find_duplicate_people", "merge_people", "delete_person",
+  "person_date_add", "person_date_remove", "people_nudges", "prepare_to_meet", "import_people_vcard",
   "search_interactions", "export_interactions",
 ];
 

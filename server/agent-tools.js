@@ -16,7 +16,10 @@ import { commitmentsFromMessages, MAX_BATCH } from "./whatsapp.js";
 import { runMailSync } from "./mailsync.js";
 import * as gifts from "./gifts.js";
 import { findDuplicatePeople } from "./duplicates.js";
-import { exportPeopleVcard, vcardSelection } from "./vcard.js";
+import { exportPeopleVcard, vcardSelection, importPeopleVcard, vcardImportInput } from "./vcard.js";
+import * as personDates from "./person-dates.js";
+import { nudgesReport } from "./nudges.js";
+import { prepareToMeet } from "./prepare.js";
 
 export const AGENT_INSTRUCTIONS = `People's Hoard is the user's private address book: who people are, what to remember about them, and when they last spoke.
 Resolve ambiguous names by asking the user which person they mean — never guess when find_people or get_person returns several candidates; two people can share a first name.
@@ -28,7 +31,8 @@ Who the person is goes in "summary" ("vecina del cuarto", "compañero del máste
 merge_people and delete_person are irreversible: confirm with the user before calling them.
 Commitments are promises: "i_owe" is what the user must do for someone, "owed_to_me" is what someone owes the user. Record one with commitment_add only when the user said it (or confirms it), with the person and, if given, the day; never invent a deadline: pass due_text in the user's words ("el viernes") and let the server turn it into a date. Before saying what is pending, call commitments_digest or commitments_list; when the user asks how to catch up with someone, prepare_person_chat already lists the open commitments both ways. Promises made in WhatsApp chats come in with commitments_from_messages (the caller hands over the messages it read; this app never reads WhatsApp itself and keeps no message text except the sentence that makes each promise). Firm commitments that Talos found in a meeting (its scribe_requirements, format commitments) come in with commitments_import_talos: only firm commitments are imported, proposals (podríamos, could, conditionals), questions, decisions and requirements are rejected with the reason, and the same source reference is never imported twice. Meeting minutes from Funes come in with commitments_ingest_minutes (give the session id) and text the user pastes goes through commitments_extract_text: both only propose, and commitments_review shows what waits for a decision (a name that matches nobody, several people with the same name): ask the user before resolving it.
 people_from_minutes puts "Reunión: <title>" on the timeline of each attendee of a meeting who is in the book (it takes the id of the minutes, which Funes announces); it never creates people, and attendees it cannot match are returned as unmatched or ambiguous. contacts_sync_mail reads from the hub the mail sent by the people in the book and keeps only the date, the channel and the subject as the last contact; it never reads or stores a body.
-Gift ideas: save one with gift_idea_add when the user mentions something a person would like (or they say what to give); list them with gift_ideas; gift_watch asks Tantalus to watch the idea's price or stock. Some days before a birthday the saved ideas reach the daily digest by themselves.`;
+Gift ideas: save one with gift_idea_add when the user mentions something a person would like (or they say what to give); list them with gift_ideas; gift_watch asks Tantalus to watch the idea's price or stock. Some days before a birthday the saved ideas reach the daily digest by themselves.
+Special dates besides the birthday (an anniversary, a saint's day) go in with person_date_add, only when the user gives the day. people_nudges says what deserves attention today (commitments due or overdue, birthdays and special dates this week, people a relationship is cooling with); the same lines reach the daily digest on their own. Before the user sees someone, prepare_to_meet writes a short catch-up with the family model (prepare_person_chat is the same material as data). import_people_vcard reads a .vcf: call it first with apply false, show what it would do, and apply only after the user agrees.`;
 
 const fail = (message, opts = {}) => {
   throw Object.assign(new Error(message), { status: 400, ...opts });
@@ -433,6 +437,44 @@ export const TOOLS = [
     },
   ),
 ];
+
+TOOLS.push(
+  tool("person_date_add",
+    "Save a special date of a person: anniversary, saint's day (fecha señalada).\nSave a dated occasion of a person besides the birthday: label and date YYYY-MM-DD, or --MM-DD when the year is unknown. yearly true (default) repeats it every year and counts the years when the year is known; yearly false is a one-off day and needs the year. The same label and day is not saved twice. It shows on the agenda, the calendar export and the daily digest a week before and on the day.\nSinónimos: aniversario, santo, fecha importante, apunta que el día, recuérdame la fecha de",
+    z.object({
+      person: personRef,
+      label: z.string().trim().min(1).max(120).describe('e.g. "Aniversario de boda", "Santo"'),
+      date: z.string().trim().describe("YYYY-MM-DD, or --MM-DD if the year is unknown"),
+      yearly: z.boolean().default(true),
+    }),
+    { idempotentHint: true },
+    ({ person, ...input }) => personDates.addPersonDate(resolveOrFail(person).id, input),
+  ),
+  tool("person_date_remove",
+    "Remove a special date of a person by id (borrar fecha señalada).\nDelete one special date by its id (from get_person dates or person_date_add). Returns whether it existed.\nSinónimos: quita la fecha, borra el aniversario, ya no es una fecha señalada",
+    z.object({ id: z.string().min(1) }),
+    { destructiveHint: true, idempotentHint: true },
+    ({ id }) => ({ removed: personDates.deletePersonDate(id) }),
+  ),
+  tool("people_nudges",
+    "What deserves attention today: due commitments, birthdays, people cooling off.\nRead-only. Commitments due today or overdue (both ways), reminders for today, birthdays and special dates within a week, and people the user has not talked to for cooling_days days (no cadence of their own, at least two past contacts). Each line says whether it already went to the daily digest (sent).\nSinónimos: avisos, qué tengo que recordar hoy, a quién debería llamar, se está enfriando, hace mucho que no hablo con",
+    z.object({}),
+    RO,
+    () => nudgesReport(),
+  ),
+  tool("prepare_to_meet",
+    "Write a short catch-up before seeing someone, with the family model (prepárame).\nGathers the last contacts, facts, open commitments both ways, reminders, gift ideas and the next birthday or special date of one person and has the family model (through the hub) write 3-7 lines plus an opening question. status ok with text; without a model status no_model or hub_down and only the outline (the same data as lines).\nSinónimos: prepárame para ver a, voy a quedar con, qué tengo pendiente con, ponme al día de",
+    z.object({ person: personRef }),
+    { readOnlyHint: true, timeoutMs: 180000 },
+    ({ person }) => prepareToMeet(resolveOrFail(person).id),
+  ),
+  tool("import_people_vcard",
+    "Import contacts from a .vcf (vCard) text; preview first, then apply.\nMatches each card by this app's UID, any e-mail or phone, or a unique exact name; otherwise creates a person. It only fills what is empty (birthday, nickname, place), adds missing circles, e-mails and phones, and keeps organisation, job title and note as facts. A handle that belongs to someone else is reported in conflicts, never moved. apply false (default) changes nothing.\nSinónimos: importar contactos, cargar vcf, pasar contactos del móvil, importar agenda",
+    vcardImportInput,
+    {},
+    importPeopleVcard,
+  ),
+);
 
 TOOLS.push(tool("search_interactions",
   "Search the full saved contact history across people, including older conversations.\n"

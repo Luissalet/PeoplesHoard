@@ -3,6 +3,7 @@ import { listPeople } from "./people.js";
 import { listReminders } from "./reminders.js";
 import { listCommitments } from "./commitments.js";
 import { parseBirthday, today } from "./dates.js";
+import { upcomingPersonDates } from "./person-dates.js";
 import { parseIso } from "./hoard-commons/dates.js";
 import { buildIcs } from "./hoard-commons/ics.js";
 
@@ -31,6 +32,12 @@ export function calendarFeed({ from = today(), generatedAt = new Date() } = {}) 
     events.push({ uid: `birthday-${person.id}@peoples-hoard.local`, start: date, all_day: true, rrule: "FREQ=YEARLY", summary: `Cumpleaños de ${person.name}` });
     birthdays++;
   }
+  let dates = 0;
+  for (const d of upcomingPersonDates({ from, days: 366 })) {
+    events.push({ uid: `date-${d.id}@peoples-hoard.local`, start: d.date, all_day: true, ...(d.yearly ? { rrule: "FREQ=YEARLY" } : {}),
+      summary: `${d.label} · ${d.name}` });
+    dates++;
+  }
   for (const reminder of listReminders({ done: false })) {
     if (parseIso(reminder.due) !== reminder.due) continue;
     const person = byId.get(reminder.person_id);
@@ -47,5 +54,5 @@ export function calendarFeed({ from = today(), generatedAt = new Date() } = {}) 
     commitments++;
   }
   const text = buildIcs(events, { name: "People's Hoard", prodid: "-//People's Hoard//Calendar Export//ES", now: generatedAt });
-  return { text, birthdays, reminders, commitments };
+  return { text, birthdays, dates, reminders, commitments };
 }

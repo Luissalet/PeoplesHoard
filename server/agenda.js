@@ -2,6 +2,8 @@
 // birthdays, follow-ups that are due by each person's cadence, and open commitments with a day.
 import { listPeople } from "./people.js";
 import { listCommitments } from "./commitments.js";
+import { listReminders } from "./reminders.js";
+import { upcomingPersonDates, personDateTitle } from "./person-dates.js";
 import { parseBirthday, addDays, localDate, today as todayLocal } from "./dates.js";
 
 let publicUrl = "http://127.0.0.1:5182";
@@ -59,6 +61,30 @@ export function agendaItems(from, to, _sphere = "", { today = todayLocal() } = {
         });
       }
     }
+  }
+
+  // special dates (anniversaries and the like): the occurrences inside the window
+  const span = Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000);
+  if (span >= 0) {
+    const seen = new Set();
+    for (let start = from; start <= to; start = addDays(start, 366)) {
+      for (const d of upcomingPersonDates({ from: start, days: Math.min(366, span) })) {
+        if (d.date > to || seen.has(`${d.id}:${d.date}`)) continue;
+        seen.add(`${d.id}:${d.date}`);
+        items.push({ id: `people:date:${d.id}:${d.date}`, title: personDateTitle(d), start: d.date, all_day: true, kind: "other",
+          priority: "normal", url: personUrl(d.person_id), detail: d.yearly ? "Cada año" : "" });
+      }
+    }
+  }
+
+  // open reminders with a day (one that is past stays on the first day of a window that reaches today)
+  for (const r of listReminders({ done: false, due_before: to })) {
+    const day = overdueDay(r.due, from, today);
+    if (!day || !inRange(day, from, to)) continue;
+    const who = r.person_id ? byId.get(r.person_id)?.name : null;
+    items.push({ id: `people:reminder:${r.id}`, title: who ? `${r.text} (${who})` : r.text, start: day, all_day: true, kind: "followup",
+      priority: r.due < today ? "high" : "normal", url: r.person_id ? personUrl(r.person_id) : `${publicUrl}/#/agenda`,
+      detail: r.due < day ? `Era para el ${r.due}` : "" });
   }
 
   for (const c of listCommitments({ status: "open", today })) {

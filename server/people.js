@@ -175,12 +175,16 @@ export function getPersonFull(id, { interactionsLimit = null } = {}) {
   const interactions = db().prepare(sql).all(...params);
   const reminders = db().prepare("SELECT * FROM reminders WHERE person_id = ? ORDER BY done, due").all(id)
     .map((r) => ({ ...r, done: !!r.done }));
+  // special dates (person-dates.js owns them; read here directly so this module imports nothing back)
+  const dates = db().prepare("SELECT * FROM person_dates WHERE person_id = ? ORDER BY substr(date, -5), label").all(id)
+    .map((r) => ({ ...r, yearly: !!r.yearly }));
   return {
     ...person,
     aliases,
     facts,
     interactions,
     reminders,
+    dates,
     days_since_contact: daysSince(person.last_contact_at),
   };
 }
@@ -313,7 +317,10 @@ export function upsertPerson(ref, patch = {}) {
   return { created: true, person: createPerson({ ...patch, name }) };
 }
 
-/** Merge dropId into keepId: linked rows move, circles are unioned, dropId is deleted. */
+/**
+ * Merge dropId into keepId: linked rows move, circles are unioned, what keep leaves empty (nickname, birthday, place, how you met,
+ * summary, cadence) is taken from drop, drop's notes are added under keep's, and dropId is deleted.
+ */
 export function mergePeople(keepId, dropId) {
   if (keepId === dropId) throw Object.assign(new Error("Selecciona dos personas distintas."), { status: 400 });
   const keep = getPerson(keepId);
@@ -327,6 +334,9 @@ export function mergePeople(keepId, dropId) {
     db().prepare("UPDATE gift_ideas SET person_id = ? WHERE person_id = ?").run(keepId, dropId);
     db().prepare("UPDATE reminders SET person_id = ? WHERE person_id = ?").run(keepId, dropId);
     db().prepare("UPDATE commitments SET person_id = ? WHERE person_id = ?").run(keepId, dropId);
+    db().prepare("UPDATE person_dates SET person_id = ? WHERE person_id = ?").run(keepId, dropId);
+    db().prepare(`DELETE FROM person_dates WHERE person_id = ? AND rowid NOT IN
+      (SELECT MIN(rowid) FROM person_dates WHERE person_id = ? GROUP BY lower(label), date)`).run(keepId, keepId);
     const dropAliases = db().prepare("SELECT * FROM aliases WHERE person_id = ?").all(dropId);
     for (const a of dropAliases) {
       try {
@@ -337,7 +347,12 @@ export function mergePeople(keepId, dropId) {
       }
     }
     const circles = Array.from(new Set([...keep.circles, ...drop.circles]));
-    db().prepare("UPDATE people SET circles = ?, updated_at = ? WHERE id = ?").run(JSON.stringify(circles), now(), keepId);
+    const pick = (field) => (keep[field] === null || keep[field] === "" ? drop[field] : keep[field]);
+    const notes = keep.notes && drop.notes && keep.notes.trim() !== drop.notes.trim() ? `${keep.notes}\n\n${drop.notes}` : keep.notes || drop.notes;
+    db().prepare(`UPDATE people SET circles = ?, nickname = ?, birthday = ?, location = ?, how_met = ?, summary = ?, notes = ?,
+      contact_every_days = ?, updated_at = ? WHERE id = ?`)
+      .run(JSON.stringify(circles), pick("nickname"), pick("birthday"), pick("location"), pick("how_met"), pick("summary"),
+        notes.slice(0, 20000), pick("contact_every_days"), now(), keepId);
     db().prepare("DELETE FROM people WHERE id = ?").run(dropId);
     db().prepare("DELETE FROM people_fts WHERE person_id = ?").run(dropId);
     recomputeLastContact(keepId);

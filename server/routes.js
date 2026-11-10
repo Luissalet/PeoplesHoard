@@ -20,7 +20,11 @@ import { commitmentsFromMessages } from "./whatsapp.js";
 import { runMailSync, mailSyncStatus, setMailSyncEnabled, mailSyncEnabled } from "./mailsync.js";
 import { getPublicUrl } from "./agenda.js";
 import { findDuplicatePeople } from "./duplicates.js";
-import { exportPeopleVcard } from "./vcard.js";
+import { exportPeopleVcard, importPeopleVcard } from "./vcard.js";
+import * as personDates from "./person-dates.js";
+import { nudgesReport, nudgeSweep, nudgesEnabled, setNudgesEnabled, coolingDays, setCoolingDays } from "./nudges.js";
+import { prepareToMeet } from "./prepare.js";
+import { whatsappLastContact, setWhatsappLastContact } from "./whatsapp.js";
 
 // Express 4 does not catch a rejected promise: hand it to the error handler.
 const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
@@ -33,6 +37,7 @@ const exportSchema = z.object({
   reminders: z.array(z.record(z.string(), z.any())),
   commitments: z.array(z.record(z.string(), z.any())).optional(),
   gift_ideas: z.array(z.record(z.string(), z.any())).optional(),
+  person_dates: z.array(z.record(z.string(), z.any())).optional(),
 });
 
 export function installRoutes(app, { version, dataDirConfigured }) {
@@ -61,6 +66,8 @@ export function installRoutes(app, { version, dataDirConfigured }) {
     res.set("Content-Type", result.media_type).set("Content-Disposition", `attachment; filename="${result.filename}"`).send(result.text);
   };
   app.post("/api/people/vcard", (req, res) => sendVcard(res, req.body));
+  // a .vcf from a phone or another address book: { text, apply } (apply false = only say what would happen)
+  app.post("/api/people/import-vcard", (req, res) => res.json(importPeopleVcard(req.body || {})));
   app.get("/api/people/:id/vcard", (req, res) => sendVcard(res, { person_ids: [req.params.id] }));
   app.get("/api/people", (req, res) => {
     res.json(people.listPeople({ q: req.query.q || "", circle: req.query.circle || "", archived: req.query.archived || "false" }));
@@ -78,6 +85,11 @@ export function installRoutes(app, { version, dataDirConfigured }) {
     const out = personBrief(req.params.id);
     return out ? res.json(out) : notFound(res);
   });
+  // «Prepárame para ver a X»: the family model writes a short catch-up; the outline comes back even without a model
+  app.post("/api/people/:id/prepare", asyncRoute(async (req, res) => {
+    const out = await prepareToMeet(req.params.id);
+    return out ? res.json(out) : notFound(res);
+  }));
   app.post("/api/people", (req, res) => res.status(201).json(people.createPerson(req.body || {})));
   app.patch("/api/people/:id", (req, res) => {
     const out = people.updatePerson(req.params.id, req.body || {});
@@ -121,6 +133,22 @@ export function installRoutes(app, { version, dataDirConfigured }) {
     return out ? res.json(out) : notFound(res);
   });
   app.delete("/api/interactions/:id", (req, res) => res.json({ ok: interactions.deleteInteraction(req.params.id) }));
+
+  // ---------- Special dates ----------
+  app.get("/api/dates/upcoming", (req, res) => res.json({ dates: personDates.upcomingPersonDates({ days: req.query.days ? Number(req.query.days) : 30 }) }));
+  app.post("/api/people/:id/dates", (req, res) => {
+    const out = personDates.addPersonDate(req.params.id, req.body || {});
+    res.status(out.created ? 201 : 200).json(out);
+  });
+  app.patch("/api/dates/:id", (req, res) => {
+    const out = personDates.updatePersonDate(req.params.id, req.body || {});
+    return out ? res.json(out) : notFound(res);
+  });
+  app.delete("/api/dates/:id", (req, res) => res.json({ ok: personDates.deletePersonDate(req.params.id) }));
+
+  // ---------- Nudges (what goes to the daily digest) ----------
+  app.get("/api/nudges", (req, res) => res.json(nudgesReport()));
+  app.post("/api/nudges/send", asyncRoute(async (req, res) => res.json({ result: await nudgeSweep({ force: true }), report: nudgesReport() })));
 
   // ---------- Reminders ----------
   app.post("/api/people/:id/reminders", (req, res) =>
@@ -210,12 +238,19 @@ export function installRoutes(app, { version, dataDirConfigured }) {
   }));
   app.get("/api/mail-sync", (req, res) => res.json(mailSyncStatus()));
   app.post("/api/mail-sync", asyncRoute(async (req, res) => res.json({ result: await runMailSync({ force: !!(req.body || {}).force }), sync: mailSyncStatus() })));
-  app.get("/api/settings", (req, res) => res.json({ gift_days_before: gifts.giftDaysBefore(), mail_sync: mailSyncEnabled(), public_url: getPublicUrl() }));
+  const settings = () => ({
+    gift_days_before: gifts.giftDaysBefore(), mail_sync: mailSyncEnabled(), nudges: nudgesEnabled(), cooling_days: coolingDays(),
+    whatsapp_last_contact: whatsappLastContact(),
+  });
+  app.get("/api/settings", (req, res) => res.json({ ...settings(), public_url: getPublicUrl() }));
   app.post("/api/settings", (req, res) => {
     const body = req.body || {};
     if (body.gift_days_before !== undefined) gifts.setGiftDaysBefore(body.gift_days_before);
     if (body.mail_sync !== undefined) setMailSyncEnabled(body.mail_sync);
-    res.json({ gift_days_before: gifts.giftDaysBefore(), mail_sync: mailSyncEnabled() });
+    if (body.nudges !== undefined) setNudgesEnabled(body.nudges);
+    if (body.cooling_days !== undefined) setCoolingDays(body.cooling_days);
+    if (body.whatsapp_last_contact !== undefined) setWhatsappLastContact(body.whatsapp_last_contact);
+    res.json(settings());
   });
 
   // ---------- Discovery / agenda ----------
@@ -252,6 +287,7 @@ export function installRoutes(app, { version, dataDirConfigured }) {
       reminders: reminders.listReminders({}),
       commitments: commitments.listCommitments({ status: "all", limit: 2000 }),
       gift_ideas: gifts.listGifts({ status: "all", limit: 1000 }),
+      person_dates: ids.flatMap((id) => personDates.listPersonDates(id)),
     });
   });
 
@@ -333,7 +369,18 @@ export function installRoutes(app, { version, dataDirConfigured }) {
         // an entry that does not validate is skipped rather than failing the whole import
       }
     }
-    res.json({ people: importedPeople, aliases: importedAliases, facts: importedFacts, interactions: importedInteractions, reminders: importedReminders, commitments: importedCommitments, gift_ideas: importedGifts });
+    let importedDates = 0;
+    for (const d of data.person_dates || []) {
+      const personId = idMap.get(d.person_id);
+      if (!personId) continue;
+      try {
+        personDates.addPersonDate(personId, { label: d.label, date: d.date, yearly: d.yearly !== false });
+        importedDates++;
+      } catch {
+        // an entry that does not validate is skipped rather than failing the whole import
+      }
+    }
+    res.json({ people: importedPeople, aliases: importedAliases, facts: importedFacts, interactions: importedInteractions, reminders: importedReminders, commitments: importedCommitments, gift_ideas: importedGifts, person_dates: importedDates });
   });
 
   // PWA manifest and service worker.
