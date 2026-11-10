@@ -3,6 +3,7 @@ import { api } from "../api.js";
 import { useApp } from "../App.jsx";
 import { Page, Section, Empty, Field, useAction } from "../components/ui.jsx";
 import { CommitmentItem, CommitmentForm, ReviewCard } from "../components/Commitments.jsx";
+import { CommitmentBalance } from "../components/CrmExtras.jsx";
 import { useCopilotContext, useCopilotRefresh } from "../copilot-hooks.js";
 
 const STATUS = { open: "Abiertos", done: "Cumplidos", dropped: "Descartados", all: "Todos" };
@@ -86,6 +87,7 @@ export default function Compromisos() {
   const { notify, refresh } = useApp();
   const [filter, setFilter] = useState({ direction: "", status: "open", person: "", overdue: false, q: "" });
   const [list, setList] = useState(null);
+  const [open, setOpen] = useState(null);
   const [review, setReview] = useState([]);
   const [people, setPeople] = useState([]);
   const [sync, setSync] = useState(null);
@@ -93,11 +95,13 @@ export default function Compromisos() {
 
   const load = useCallback(async () => {
     try {
-      const [mine, queue] = await Promise.all([
+      const [mine, queue, everything] = await Promise.all([
         api.commitments.list({ direction: filter.direction, status: filter.status, person: filter.person, overdue: filter.overdue ? "1" : "", q: filter.q }),
         api.commitments.review(),
+        api.commitments.list({ status: "open" }),
       ]);
       setList(mine.commitments);
+      setOpen(everything.commitments);
       setReview(queue.review);
       refresh();
     } catch (e) {
@@ -137,6 +141,14 @@ export default function Compromisos() {
         </div>
       )}
 
+      <div className="mb-4">
+        <CommitmentBalance open={open} onPick={({ person, direction }) => {
+          setFilter((f) => ({ ...f, person, direction, status: "open", overdue: false, q: "" }));
+          document.getElementById("commitments-list")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }} />
+      </div>
+
+      <div id="commitments-list" />
       <Section title="Lista" aside={<span className="help">{list ? `${list.length} compromisos${overdueCount ? ` · ${overdueCount} vencidos` : ""}` : ""}</span>}>
         <div className="mb-3 flex flex-wrap items-end gap-3" role="search" aria-label="Filtros de compromisos">
           <div className="flex flex-wrap gap-2" role="group" aria-label="Quién debe">

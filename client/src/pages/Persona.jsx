@@ -6,6 +6,7 @@ import { useApp } from "../App.jsx";
 import { Page, Section, Field, useAction, ConfirmDialog } from "../components/ui.jsx";
 import { PersonCommitments } from "../components/Commitments.jsx";
 import { FactsSection, AliasesSection, InteractionsSection, RemindersSection, GiftsSection } from "../components/PersonSections.jsx";
+import { DatesSection, PreparePanel } from "../components/CrmExtras.jsx";
 import { daysAgoLabel, birthdayLabel } from "../format.js";
 
 function HeaderForm({ person, onSave, onCancel, busy }) {
@@ -138,6 +139,8 @@ export default function Persona({ id }) {
   const [editing, setEditing] = useState(false);
   const [merging, setMerging] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [preparing, setPreparing] = useState(false);
+  const [missing, setMissing] = useState(false);
   const [summaryDraft, setSummaryDraft] = useState(null);
   const [notesDraft, setNotesDraft] = useState(null);
   const [run, busy] = useAction(notify);
@@ -147,8 +150,11 @@ export default function Persona({ id }) {
       const [record, nextBrief] = await Promise.all([api.people.get(id), api.people.brief(id)]);
       setPerson(record);
       setBrief(nextBrief);
+      setMissing(false);
     } catch (e) {
-      notify({ kind: "error", text: e.message });
+      // a link to someone who was merged or deleted: say so instead of loading forever
+      if (/no existe/i.test(e.message)) setMissing(true);
+      else notify({ kind: "error", text: e.message });
     }
   }, [id, notify]);
   useEffect(() => { load(); }, [load]);
@@ -158,6 +164,16 @@ export default function Persona({ id }) {
     ...(person && notesDraft !== null ? [{ kind: "person-notes", object_id: person.id, dirty: notesDraft !== person.notes, fields: { notes: notesDraft } }] : []),
   ] }));
 
+  if (missing) {
+    return (
+      <Page title="Persona no encontrada">
+        <div className="panel" data-testid="person-missing">
+          <p className="mb-3 text-[13px]">Esta ficha ya no existe: puede que se fusionara con otra o que se borrara.</p>
+          <a href="#/personas" className="btn">Volver a Personas</a>
+        </div>
+      </Page>
+    );
+  }
   if (!person) return <p className="help p-8">Cargando…</p>;
 
   const saveHeader = async (patch) => {
@@ -202,6 +218,7 @@ export default function Persona({ id }) {
       actions={
         !editing && (
           <>
+            <button type="button" className="btn btn-primary" aria-expanded={preparing} onClick={() => setPreparing(true)} title="Resumen de lo último, compromisos abiertos y temas pendientes, escrito con el modelo de la familia">Prepárame</button>
             <button type="button" className="btn" onClick={() => setEditing(true)}>Editar datos</button>
             <button type="button" className="btn" disabled={busy} title="Nombre, apodo, teléfonos, correos, cumpleaños, ubicación y círculos guardados" onClick={() => run(() => api.people.downloadVcard([id]), "Contacto descargado en vCard.")}>Descargar .vcf</button>
             <button type="button" className="btn" onClick={() => setMerging((v) => !v)} aria-expanded={merging}>Fusionar</button>
@@ -223,6 +240,8 @@ export default function Persona({ id }) {
         </div>
       )}
       {merging && <MergePanel person={person} onDone={() => { setMerging(false); load(); }} notify={notify} />}
+
+      {preparing && <div className="mb-4"><PreparePanel person={person} notify={notify} onClose={() => setPreparing(false)} /></div>}
 
       <div className="mb-4"><ConversationBrief brief={brief} /></div>
 
@@ -256,7 +275,10 @@ export default function Persona({ id }) {
         <Section title="Alias"><AliasesSection person={person} reload={load} notify={notify} /></Section>
       </div>
 
-      <div className="mt-4"><Section title="Ideas de regalo"><GiftsSection person={person} notify={notify} /></Section></div>
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <Section title="Fechas señaladas"><DatesSection person={person} reload={load} notify={notify} /></Section>
+        <Section title="Ideas de regalo"><GiftsSection person={person} notify={notify} /></Section>
+      </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Section title="Línea de tiempo"><InteractionsSection person={person} reload={load} notify={notify} /></Section>
