@@ -1,21 +1,19 @@
 # People's Hoard: ficha para Faustus
 
-## Qué añade esta versión
-- `commitments_import_talos` (REST `POST /api/commitments/import-talos`): importa a los compromisos de People los compromisos firmes que Talos extrae de una reunión transcrita.
+CRM personal local (puerto 5182, id `people`): quién es cada persona, qué sabes de ella, cuándo hablasteis, compromisos en los dos sentidos y qué recordar. 38 herramientas MCP.
 
 ## Qué puede hacer
-- Aceptar solo elementos `kind: commitment` con `firm: true`.
-- Rechazar con motivo (`proposal`, `not_commitment`, `not_firm`, `no_text`, `no_source_ref`, `invalid`) propuestas, preguntas, decisiones y requisitos.
-- Conservar fuente (`funes`), cita, instante en la reunión y referencia `talos:<sesión>#<elemento>`.
-- No duplicar: la clave `talos:<ref>` evita un segundo compromiso al reimportar, también tras completarlo, descartarlo o resolver su revisión.
-- Mandar a la cola de revisión los responsables o personas dudosos, igual que con las actas.
+- Compromisos: `i_owe` / `owed_to_me`, con fecha, estado, origen (Funes, Talos, WhatsApp, texto, chat, manual), cola de revisión, balance «Qué debo / Qué me deben» y vencidos.
+- Avisos al resumen diario del hub (`digest.item`, una vez cada uno): compromisos que vencen hoy o vencidos, recordatorios de hoy, cumpleaños y fechas señaladas (una semana antes y el día), relaciones que se enfrían. `people_nudges` dice qué hay y si ya salió.
+- `prepare_to_meet`: preparación escrita antes de ver a alguien con el modelo de la familia (por el hub); sin modelo devuelve la lista de datos.
+- Fechas señaladas por persona (`person_date_add` / `person_date_remove`), en agenda, `.ics`, agenda de la familia y resumen.
+- `import_people_vcard`: importa un `.vcf` con vista previa (`apply: false`); une por UID, correo, teléfono o nombre exacto y solo completa lo vacío.
+- Último contacto automático: por correo del hub y por las tandas de WhatsApp que Faustus pasa a `commitments_from_messages`.
+- Duplicados (`find_duplicate_people`), fusión que conserva lo que solo sabía el duplicado, exportación vCard, historial completo de contactos.
 
 ## Qué no puede hacer
-- No lee Talos por su cuenta: quien llama (Faustus) pasa la salida de `scribe_requirements` con `format: commitments`.
-- No crea personas ni infiere compromisos de propuestas.
+- No lee WhatsApp ni los chats de Faustus por su cuenta: solo lo que Faustus envía. Hoard Link no ofrece leer mensajes de Faustus.
+- No crea personas desde actas ni mensajes; no relaciona personas entre sí (pareja de, hermano de…).
 
 ## Pruebas
-- `node --test tests/*.test.js` (`tests/talos-import.test.js` cubre propuestas, importación única, deduplicación, REST y herramienta).
-
-## Pendientes
-- Ninguno abierto.
+- `node --test tests/*.test.js` (189; `tests/crm-autopilot.test.js` cubre fechas, enfriamiento, avisos con hub de pega, prepárame, WhatsApp, vCard y fusión).
