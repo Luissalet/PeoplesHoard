@@ -183,8 +183,8 @@ test("changing an e-mail alias re-registers the interest soon, and the backgroun
   assert.ok(hub.state.interests.at(-1).from_addresses.includes("cambio@example.test"));
   assert.equal(mailAutoEnabled({ PEOPLE_MAIL_AUTO: "0" }), false);
   assert.equal(mailAutoEnabled({}), true);
-  assert.deepEqual(startBackground({ env: { PEOPLE_MAIL_AUTO: "0" }, firstDelayMs: 1e6, mailIntervalMs: 1e6, giftIntervalMs: 1e6 }), { mail: false, gifts: true });
-  assert.deepEqual(startBackground({ firstDelayMs: 1e6, mailIntervalMs: 1e6, giftIntervalMs: 1e6 }), { mail: true, gifts: true });
+  assert.deepEqual(startBackground({ env: { PEOPLE_MAIL_AUTO: "0" }, firstDelayMs: 1e6, mailIntervalMs: 1e6, giftIntervalMs: 1e6 }), { mail: false, gifts: true, nudges: true });
+  assert.deepEqual(startBackground({ firstDelayMs: 1e6, mailIntervalMs: 1e6, giftIntervalMs: 1e6 }), { mail: true, gifts: true, nudges: true });
   stopBackground();
 });
 

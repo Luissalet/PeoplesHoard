@@ -1,8 +1,10 @@
-// What runs on its own while the app is up: the mail pass (every 30 minutes) and the birthday-gifts sweep (every hour).
+// What runs on its own while the app is up: the mail pass (every 30 minutes), the birthday-gifts sweep and the daily nudges
+// (commitments due or overdue, birthdays and special dates, contacts cooling down) to the hub's digest (both every hour).
 // Both only talk to the hub and stay quiet when it is not there. PEOPLE_MAIL_AUTO=0 switches the mail pass off.
 // The timers are the family's startBackground (no overlapping passes, a failing pass is logged and the loop goes on).
 import { runMailSync, mailSyncEnabled } from "./mailsync.js";
 import { giftSweep } from "./gifts.js";
+import { nudgeSweep } from "./nudges.js";
 import { getPublicUrl } from "./agenda.js";
 import { startBackground as every, envFlag } from "./hoard-commons/server.js";
 
@@ -14,12 +16,14 @@ const jobs = [];
 
 export function startBackground({ mailIntervalMs = MAIL_INTERVAL_MS, giftIntervalMs = GIFT_INTERVAL_MS, firstDelayMs = 20000, env = process.env } = {}) {
   stopBackground();
-  const started = { mail: false, gifts: true };
+  const started = { mail: false, gifts: true, nudges: true };
   if (mailAutoEnabled(env)) {
     started.mail = true;
     jobs.push(every({ name: "people-mail", intervalMs: mailIntervalMs, firstDelayMs, tick: async () => { if (mailSyncEnabled()) await runMailSync(); } }));
   }
   jobs.push(every({ name: "people-gifts", intervalMs: giftIntervalMs, firstDelayMs: firstDelayMs + 5000, tick: () => giftSweep({ baseUrl: getPublicUrl() }) }));
+  // switched off from Ajustes (nudges_enabled): the sweep itself returns "off"
+  jobs.push(every({ name: "people-nudges", intervalMs: giftIntervalMs, firstDelayMs: firstDelayMs + 10000, tick: () => nudgeSweep({ baseUrl: getPublicUrl() }) }));
   return started;
 }
 

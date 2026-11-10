@@ -181,6 +181,19 @@ export const MIGRATIONS = [
     seen_at TEXT NOT NULL
   );
   `,
+  // 6: special dates per person besides the birthday (a wedding anniversary, a saint's day, the day a child is due): a label and
+  // a day, "YYYY-MM-DD" or "--MM-DD" like birthdays; `yearly` = 0 is a one-off day that needs its year.
+  `
+  CREATE TABLE person_dates (
+    id TEXT PRIMARY KEY,
+    person_id TEXT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+    label TEXT NOT NULL,
+    date TEXT NOT NULL,
+    yearly INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX person_dates_person ON person_dates(person_id);
+  `,
 ];
 
 let database = null;

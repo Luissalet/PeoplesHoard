@@ -4,6 +4,8 @@ import { listPeople } from "./people.js";
 import { listReminders } from "./reminders.js";
 import { listCommitments } from "./commitments.js";
 import { nextBirthday, daysSince, today, addDays } from "./dates.js";
+import { upcomingPersonDates } from "./person-dates.js";
+import { coolingContacts, coolingDays } from "./nudges.js";
 
 export function upcomingReport({ days = 30 } = {}) {
   const window = Math.max(1, Math.min(365, Number(days) || 30));
@@ -51,14 +53,21 @@ export function upcomingReport({ days = 30 } = {}) {
   const horizon = addDays(from, window);
   const commitments = listCommitments({ status: "open", today: from }).filter((c) => c.overdue || (c.due && c.due <= horizon));
 
-  return { days: window, birthdays, reminders, neglected, commitments, summary: summarize(birthdays, reminders, neglected, commitments) };
+  // special dates (anniversaries and the like) in the same window, and the people a relationship is cooling with (no cadence)
+  const dates = upcomingPersonDates({ from, days: window });
+  const cooling = coolingContacts({ today: from });
+
+  return { days: window, birthdays, dates, reminders, neglected, cooling, cooling_days: coolingDays(), commitments,
+    summary: summarize(birthdays, reminders, neglected, commitments, dates, cooling) };
 }
 
-function summarize(birthdays, reminders, neglected, commitments) {
+function summarize(birthdays, reminders, neglected, commitments, dates = [], cooling = []) {
   const parts = [
     birthdays.length ? `${birthdays.length} cumpleaños próximos` : "sin cumpleaños próximos",
-    reminders.length ? `${reminders.length} recordatorios pendientes` : "sin recordatorios pendientes",
-    neglected.length ? `${neglected.length} personas con las que toca hablar` : "nadie abandonado",
+    ...(dates.length ? [`${dates.length} ${dates.length === 1 ? "fecha señalada" : "fechas señaladas"}`] : []),
+    reminders.length ? `${reminders.length} ${reminders.length === 1 ? "recordatorio pendiente" : "recordatorios pendientes"}` : "sin recordatorios pendientes",
+    neglected.length ? `${neglected.length} ${neglected.length === 1 ? "persona con la que toca hablar" : "personas con las que toca hablar"}` : "nadie abandonado",
+    ...(cooling.length ? [`${cooling.length} ${cooling.length === 1 ? "relación que se enfría" : "relaciones que se enfrían"}`] : []),
     commitments.length ? `${commitments.length} ${commitments.length === 1 ? "compromiso vencido o próximo" : "compromisos vencidos o próximos"}` : "sin compromisos vencidos ni próximos",
   ];
   return `${parts.join(", ")}.`;

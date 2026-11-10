@@ -16,7 +16,8 @@
 //   - the local model is optional (`refine`), off by default, and what it finds only goes to the review queue.
 import crypto from "node:crypto";
 import { z } from "zod";
-import { db, now } from "./db.js";
+import { db, now, getSetting, setSetting } from "./db.js";
+import { createInteraction, updateInteraction } from "./interactions.js";
 import { fold } from "./text.js";
 import { today as todayLocal, addDays, localDate } from "./dates.js";
 import { parseDue } from "./hoard-commons/dates.js";
@@ -26,6 +27,30 @@ import * as commitments from "./commitments.js";
 import * as family from "./hoard-link.js";
 
 export const MAX_BATCH = 500;
+export const LAST_CONTACT_KEY = "whatsapp_last_contact";
+/** Whether the messages Faustus hands over also move the last contact of the people they are from or to (on by default). */
+export const whatsappLastContact = () => getSetting(LAST_CONTACT_KEY, true) !== false;
+export function setWhatsappLastContact(value) {
+  if (typeof value !== "boolean") throw Object.assign(new Error("whatsapp_last_contact debe ser true o false."), { status: 400 });
+  return setSetting(LAST_CONTACT_KEY, value);
+}
+
+/**
+ * The last contact from the chats: one "WhatsApp" line per person and day on the timeline (ref `whatsapp:<day>`, no words of
+ * any message), at the time of the latest message of that day either way; a later batch of the same day moves it forward.
+ * Returns how many timelines changed.
+ */
+function noteChatContacts(latest) {
+  let changed = 0;
+  for (const [personId, ms] of latest) {
+    const at = new Date(ms).toISOString();
+    const ref = `whatsapp:${localDate(at)}`;
+    const row = db().prepare("SELECT id, at FROM interactions WHERE person_id = ? AND ref = ?").get(personId, ref);
+    if (!row) { createInteraction(personId, { at, channel: "whatsapp", summary: "Mensajes de WhatsApp", source: "agent" }, { ref }); changed++; }
+    else if (row.at < at) { updateInteraction(row.id, { at }); changed++; }
+  }
+  return changed;
+}
 const LEDGER_DAYS = 120;
 const REFINE_MAX_MESSAGES = 60;
 
@@ -544,12 +569,16 @@ export async function commitmentsFromMessages(input, { today = todayLocal(), cha
   };
   const cache = new Map();
   const unhit = [];
+  const latest = new Map(); // person id -> time of the latest message with them in this batch (last contact)
   for (const m of messages) {
     const sender = senderOf(m);
     const ms = millisOf(m.timestamp ?? m.ts ?? m.at);
     const text = String(m.text ?? m.body ?? "");
     if (!sender || ms === null) { result.skipped.invalid++; continue; }
     if (m.is_group === true || /@g\.us$/.test(String(m.chat_id || ""))) { result.skipped.group++; continue; }
+    // any message with someone who is in the book counts as having talked, whatever it says (never later than now)
+    const talked = matchContact(m, cache);
+    if (talked.state === "person" && talked.person && ms <= Date.now() + 60000) latest.set(talked.person.id, Math.max(latest.get(talked.person.id) || 0, ms));
     if (text.trim().length < 6) { result.skipped.empty++; continue; }
     const chatKey = String(m.chat_id || digitsPhone(m) || fold(m.contact_name || m.contact || "") || "chat").slice(0, 120);
     const msgKey = String(m.id ?? m.message_id ?? "").trim() || sha(`${ms}|${text}`).slice(0, 16);
@@ -600,5 +629,6 @@ export async function commitmentsFromMessages(input, { today = todayLocal(), cha
     for (const item of unhit) if (done.has(item)) markSeen(item.ledgerKey); // hub down or no model: they are read again next time
     result.retry = unhit.length - done.size;
   }
+  result.contacts_updated = latest.size && whatsappLastContact() ? noteChatContacts(latest) : 0;
   return result;
 }
