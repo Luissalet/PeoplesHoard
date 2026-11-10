@@ -6,6 +6,7 @@ import { daysAgoLabel, daysUntilBirthday, birthdayLabel } from "../format.js";
 import { useCopilotContext, useCopilotRefresh } from "../copilot-hooks.js";
 import DuplicatePeople from "../components/DuplicatePeople.jsx";
 import InteractionHistory from "../components/InteractionHistory.jsx";
+import { VcardImport } from "../components/CrmExtras.jsx";
 
 const blank = { name: "", nickname: "", circles: "", location: "" };
 
@@ -80,6 +81,7 @@ export default function Personas() {
   const [selected, setSelected] = useState([]);
   const [duplicatesOpen, setDuplicatesOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [run, busy] = useAction(notify);
 
   const load = useCallback(async () => {
@@ -105,9 +107,10 @@ export default function Personas() {
     <Page
       title="Personas"
       description="Quién es quién, qué sabes de cada persona y cuándo hablasteis por última vez."
-      actions={!creating && <><button type="button" className="btn" aria-expanded={duplicatesOpen} aria-controls="people-duplicates" onClick={() => setDuplicatesOpen(!duplicatesOpen)}>{duplicatesOpen ? "Cerrar coincidencias" : "Buscar duplicados"}</button><button type="button" className="btn" disabled={!people.length} aria-expanded={selecting} onClick={() => { setSelecting(!selecting); setSelected([]); }}>Exportar contactos</button><button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>Nueva persona</button></>}
+      actions={!creating && <><button type="button" className="btn" aria-expanded={duplicatesOpen} aria-controls="people-duplicates" onClick={() => setDuplicatesOpen(!duplicatesOpen)}>{duplicatesOpen ? "Cerrar coincidencias" : "Buscar duplicados"}</button><button type="button" className="btn" aria-expanded={importOpen} onClick={() => setImportOpen(!importOpen)}>Importar contactos</button><button type="button" className="btn" disabled={!people.length} aria-expanded={selecting} onClick={() => { setSelecting(!selecting); setSelected([]); }}>Exportar contactos</button><button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>Nueva persona</button></>}
     >
       {creating && <div className="mb-4"><NewPersonForm onSubmit={create} onCancel={() => setCreating(false)} busy={busy} /></div>}
+      {importOpen && <VcardImport notify={notify} onClose={() => setImportOpen(false)} onDone={() => { setImportOpen(false); load(); refresh(); }} />}
       <div className="mb-4 flex flex-col gap-3">
         <input className="field sm:max-w-[420px]" placeholder="Buscar por nombre, apodo o alias…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Buscar personas" />
         <CircleChips circles={circles || []} active={circle} onToggle={setCircle} />

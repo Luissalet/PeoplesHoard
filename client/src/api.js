@@ -27,6 +27,8 @@ export const api = {
     update: (id, data) => request("PATCH", `/api/people/${id}`, data),
     remove: (id) => request("DELETE", `/api/people/${id}`),
     merge: (keep_id, drop_id) => request("POST", "/api/people/merge", { keep_id, drop_id }),
+    prepare: (id) => request("POST", `/api/people/${id}/prepare`, {}),
+    importVcard: (text, apply) => request("POST", "/api/people/import-vcard", { text, apply }),
     downloadVcard: async (person_ids) => {
       const response = await fetch("/api/people/vcard", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ person_ids }) });
       if (!response.ok) { const error = await response.json(); throw new Error(error.error || "No se pudieron exportar los contactos."); }
@@ -62,6 +64,15 @@ export const api = {
     add: (personId, data) => request("POST", `/api/people/${personId}/interactions`, data),
     update: (id, data) => request("PATCH", `/api/interactions/${id}`, data),
     remove: (id) => request("DELETE", `/api/interactions/${id}`),
+  },
+  dates: {
+    add: (personId, data) => request("POST", `/api/people/${personId}/dates`, data),
+    update: (id, data) => request("PATCH", `/api/dates/${id}`, data),
+    remove: (id) => request("DELETE", `/api/dates/${id}`),
+  },
+  nudges: {
+    get: () => request("GET", "/api/nudges"),
+    send: () => request("POST", "/api/nudges/send", {}),
   },
   reminders: {
     add: (personId, data) => request("POST", `/api/people/${personId}/reminders`, data),

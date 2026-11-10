@@ -20,16 +20,18 @@ function HubSection({ notify }) {
   const [settings, setSettings] = useState(null);
   const [sync, setSync] = useState(null);
   const [days, setDays] = useState("21");
+  const [cooling, setCooling] = useState("90");
   const [run, busy] = useAction(notify);
   const load = async () => {
     try {
       const [s, m] = await Promise.all([api.settings.get(), api.mailSync.status()]);
-      setSettings(s); setSync(m); setDays(String(s.gift_days_before));
+      setSettings(s); setSync(m); setDays(String(s.gift_days_before)); setCooling(String(s.cooling_days));
     } catch (e) { notify({ kind: "error", text: e.message }); }
   };
   useEffect(() => { load(); }, []);
   useCopilotRefresh(() => { load(); });
-  useCopilotContext(() => ({ editors: settings ? [{ kind: "settings-form", object_id: null, dirty: days !== String(settings.gift_days_before), fields: { gift_days_before: days } }] : [] }));
+  useCopilotContext(() => ({ editors: settings ? [{ kind: "settings-form", object_id: null,
+    dirty: days !== String(settings.gift_days_before) || cooling !== String(settings.cooling_days), fields: { gift_days_before: days, cooling_days: cooling } }] : [] }));
   const save = async (patch, message) => { if (await run(() => api.settings.save(patch), message)) load(); };
   const readNow = async () => {
     const out = await run(() => api.mailSync.run(), null);
@@ -48,17 +50,29 @@ function HubSection({ notify }) {
       </label>
       {sync && (
         <p className="help mb-3">
-          {sync.addresses} direcciones · {MAIL_STATUS[sync.last_status] || sync.last_status}
+          {sync.addresses} {sync.addresses === 1 ? "dirección" : "direcciones"} · {MAIL_STATUS[sync.last_status] || sync.last_status}
           {sync.last_run_at ? ` · ${new Date(sync.last_run_at).toLocaleString("es-ES")}` : ""}
           {" "}<button type="button" className="btn-link" onClick={readNow} disabled={busy}>Leer ahora</button>
         </p>
       )}
-      <form onSubmit={(e) => { e.preventDefault(); save({ gift_days_before: Number(days) }, "Guardado."); }} className="flex flex-wrap items-end gap-2">
+      <label className="mb-3 flex items-start gap-2 text-[13px]">
+        <input type="checkbox" checked={settings.whatsapp_last_contact} onChange={(e) => save({ whatsapp_last_contact: e.target.checked }, e.target.checked ? "WhatsApp actualiza el último contacto." : "WhatsApp ya no actualiza el último contacto.")} disabled={busy} />
+        <span>Actualizar el último contacto con los mensajes de WhatsApp que Faustus pasa para los compromisos (solo de los chats que activaste allí). Se apunta una línea «Mensajes de WhatsApp» por persona y día; nunca el texto.</span>
+      </label>
+      <label className="mb-3 flex items-start gap-2 text-[13px]">
+        <input type="checkbox" checked={settings.nudges} onChange={(e) => save({ nudges: e.target.checked }, e.target.checked ? "Avisos activados." : "Avisos desactivados.")} disabled={busy} />
+        <span>Enviar avisos al resumen diario del hub: compromisos que vencen hoy o han vencido, recordatorios de hoy, cumpleaños y fechas señaladas (una semana antes y el día) y personas con las que se enfría la relación. Cada aviso sale una sola vez.</span>
+      </label>
+      <form onSubmit={(e) => { e.preventDefault(); save({ gift_days_before: Number(days), cooling_days: Number(cooling) }, "Guardado."); }} className="flex flex-wrap items-end gap-3">
         <Field label="Ideas de regalo en el resumen, días antes del cumpleaños">
           <input className="field field-sm" style={{ width: 90 }} inputMode="numeric" value={days} onChange={(e) => setDays(e.target.value)} />
         </Field>
+        <Field label="Avisar si no hablas con alguien en (días; 0 = nunca)">
+          <input className="field field-sm" style={{ width: 90 }} inputMode="numeric" value={cooling} onChange={(e) => setCooling(e.target.value)} aria-label="Días sin hablar para avisar" />
+        </Field>
         <button type="submit" className="btn btn-sm" disabled={busy}>Guardar</button>
       </form>
+      <p className="help mt-2">El aviso de «se enfría» es para quien no tiene cadencia propia y con quien has hablado al menos dos veces; quien tiene «Hablar cada (días)» sale en «Abandonados» de la Agenda.</p>
     </Section>
   );
 }
@@ -90,7 +104,7 @@ export default function Ajustes() {
       const data = JSON.parse(text);
       const out = await run(() => api.importBackup(data), null);
       if (out) {
-        notify({ kind: "ok", text: `Importadas ${out.people} personas, ${out.aliases} alias, ${out.facts} datos, ${out.interactions} contactos, ${out.reminders} recordatorios y ${out.commitments ?? 0} compromisos.` });
+        notify({ kind: "ok", text: `Importadas ${out.people} personas, ${out.aliases} alias, ${out.facts} datos, ${out.interactions} contactos, ${out.reminders} recordatorios, ${out.commitments ?? 0} compromisos, ${out.gift_ideas ?? 0} ideas de regalo y ${out.person_dates ?? 0} fechas señaladas.` });
         refresh();
       }
     } catch (e) {
@@ -105,7 +119,7 @@ export default function Ajustes() {
     <Page title="Ajustes" description="Copia de seguridad y datos de la instalación.">
       <div className="grid gap-4 lg:grid-cols-2">
         <Section title="Copia de seguridad">
-          <p className="help mb-3">Exporta toda tu agenda (personas, alias, datos, línea de tiempo, recordatorios y compromisos) a un archivo JSON, o impórtala de vuelta. Importar siempre crea personas nuevas; no sobrescribe las existentes.</p>
+          <p className="help mb-3">Exporta toda tu agenda (personas, alias, datos, línea de tiempo, recordatorios, compromisos, ideas de regalo y fechas señaladas) a un archivo JSON, o impórtala de vuelta. Importar siempre crea personas nuevas; no sobrescribe las existentes.</p>
           <div className="flex flex-wrap gap-2">
             <button type="button" className="btn btn-primary" onClick={exportBackup} disabled={busy}>Exportar JSON</button>
             <button type="button" className="btn" onClick={() => fileRef.current?.click()} disabled={busy || importing}>Importar JSON</button>
