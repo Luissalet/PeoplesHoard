@@ -1,5 +1,8 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
+import path from "node:path";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { bootServer } from "./helpers.js";
 import { db } from "../server/db.js";
 import { createPerson } from "../server/people.js";
@@ -52,6 +55,33 @@ test("HTTP attachment preserves UTF-8 CSV quotes, commas and multiline summaries
   assert.ok(csv.endsWith("\r\n"));
   const agent = await server.agent("export_interactions", { person_id: person.id, format: "csv" });
   assert.equal(agent.body.text, csv, "HTTP and MCP return the same complete CSV");
+});
+
+test("real MCP client receives the complete JSON and CSV exports while search remains capped", async () => {
+  const client = new Client({ name: "contact-export-regression", version: "1" });
+  const transport = new StdioClientTransport({ command: process.execPath,
+    args: [path.resolve(import.meta.dirname, "../server/mcp.js")],
+    env: { ...process.env, PEOPLE_URL: server.base, PEOPLE_DATA_DIR: server.dataDir,
+      HOARD_HUB_URL: "http://127.0.0.1:9", HOARD_EVENTS: "0" }, stderr: "pipe" });
+  try {
+    await client.connect(transport);
+    for (const format of ["json", "csv"]) {
+      const args = { person_id: person.id, format };
+      const output = await client.callTool({ name: "export_interactions", arguments: args });
+      assert.ok(!output.isError);
+      const result = JSON.parse(output.content[0].text);
+      const expected = exportInteractions(args);
+      assert.equal(result.count, 137);
+      assert.ok(Buffer.byteLength(result.text) > 20000);
+      assert.ok(!result.truncated && !Object.hasOwn(result, "__uncapped"));
+      // Each call has its own timestamp; the exported rows and CSV bytes remain identical.
+      if (format === "json") {
+        assert.deepEqual(JSON.parse(result.text).interactions, JSON.parse(expected.text).interactions);
+      } else assert.equal(result.text, expected.text);
+    }
+    const search = await client.callTool({ name: "search_interactions", arguments: { limit: 100 } });
+    assert.ok(JSON.parse(search.content[0].text).truncated);
+  } finally { await client.close(); }
 });
 
 test("export filters match history, including archived contacts, inclusive dates and empty results", () => {

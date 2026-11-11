@@ -142,8 +142,10 @@ test("prepare_to_meet: the family model writes it from the book's data; without 
 test("WhatsApp batches move the last contact: one line per person and day, never the words of a message", async () => {
   const p = people.createPerson({ name: "Lola Mensajes" });
   await s.call("POST", `/api/people/${p.id}/aliases`, { kind: "phone", value: "+34 611 22 33 44" });
-  const at1 = Date.parse(`${T}T09:00:00`);
-  const at2 = Date.parse(`${T}T11:30:00`);
+  // Saved messages must be in the past even when the suite runs before noon.
+  const day = addDays(T, -1);
+  const at1 = Date.parse(`${day}T09:00:00`);
+  const at2 = Date.parse(`${day}T11:30:00`);
   const msg = (id, ts, text, sender = "them") => ({ id, chat_id: "34611223344@s.whatsapp.net", contact_name: "Lola", phone: "+34611223344", sender, text, timestamp: ts });
   const first = await s.agent("commitments_from_messages", { messages: [msg("m1", at1, "ok"), msg("m2", at1 + 1000, "nos vemos pronto")] });
   assert.equal(first.status, 200, JSON.stringify(first.body));
