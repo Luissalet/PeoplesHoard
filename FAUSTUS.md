@@ -16,8 +16,8 @@ CRM personal local (puerto 5182, id `people`): quién es cada persona, qué sabe
 - No crea personas desde actas ni mensajes; no relaciona personas entre sí (pareja de, hermano de…).
 
 ## Pruebas
-- `node --test tests/*.test.js` (189; `tests/crm-autopilot.test.js` cubre fechas, enfriamiento, avisos con hub de pega, prepárame, WhatsApp, vCard y fusión).
+- `node --test tests/*.test.js` (190; incluye cliente MCP real para JSON y CSV de 137 contactos registrados, por encima del límite normal; `tests/crm-autopilot.test.js` cubre fechas, enfriamiento, avisos con hub de pega, prepárame, WhatsApp, vCard y fusión).
 
 ## Skills
 
-The `skills` block of `faustus-plugin.json` names the procedures of the family's skill library that fit this app's work: `personal-crm-follow-ups`, `hoard-meeting-prep`. The hub's Skills tab shows and changes them. This app does not hand them to connecting agents yet.
+El puente MCP entrega las skills copiadas junto a los datos mediante `skills_list`, `skill_read`, instrucciones de conexión y prompts `skill-<slug>`. La copia completa de Node commons se sincroniza desde el Hub. `export_interactions` conserva todos los registros en JSON y CSV por HTTP y MCP; las búsquedas normales mantienen su límite y paginación.

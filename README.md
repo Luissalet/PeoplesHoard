@@ -269,4 +269,6 @@ License: MIT (see `LICENSE`).
 
 ## Skills
 
-The `skills` block of `faustus-plugin.json` names the procedures of the family's skill library that fit this app's work: `personal-crm-follow-ups`, `hoard-meeting-prep`. The hub's Skills tab shows and changes them. This app does not hand them to connecting agents yet.
+The `skills` block of `faustus-plugin.json` names the procedures of the family's skill library that fit this app's work: `personal-crm-follow-ups`, `hoard-meeting-prep`. The hub's Skills tab shows and changes them. The MCP bridge serves the local shelf through `skills_list`, `skill_read`, connection instructions and `skill-<slug>` prompts, including when the library is offline.
+
+The complete Node commons copy is synchronized from the Hub. `export_interactions` opts out of the normal agent result cap, so JSON snapshots and UTF-8 CSV attachments retain every matching row through HTTP and MCP. Ordinary history searches remain capped and paginated.
