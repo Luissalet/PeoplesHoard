@@ -1,12 +1,53 @@
 # People's Hoard
 
-Local-first personal CRM: who people are, what you know about them, when you last talked and what to remember — stored in a single SQLite file on your own computer and exposed to an assistant through MCP.
+A local personal CRM: who people are, what you know about them, when you last talked, what you promised each other and what to remember, stored in one SQLite file on your own computer.
 
 Spanish version: [`README.es.md`](README.es.md).
 
-## Run
+## What it is
 
-Requires Node.js 22.13 or later (it uses the built-in `node:sqlite` with FTS5). No native modules, no Docker.
+People's Hoard is a small web app (Express + React) that works as an address book with memory. For each person it keeps circles, nicknames and aliases, a birthday and special dates, free-form facts, a contact timeline, reminders, gift ideas and the commitments between you. It tells you whom you have neglected, what is due and what to say when you meet.
+
+The same data is exposed to an assistant through MCP. It is one app of the Hoard family and works on its own; with the family hub or Faustus running it can also read mail for last contacts, extract commitments from meetings and messages, and feed the daily digest. The interface is in Spanish.
+
+## What it does
+
+**People**
+- Instant search that ignores accents and matches partial names, nicknames and aliases, with circle chips as a filter; cards show circles, "last contact 12 days ago" and a birthday-soon badge.
+- Person page: a live conversation brief (facts, five recent contacts, open reminders), editable header (name, nickname, circles, birthday, location, desired contact cadence), summary and notes that save on blur, an editable key/value fact list and aliases (WhatsApp name, e-mail, phone) so incoming messages resolve to the right person.
+- Special dates per person (anniversary, saint's day, one-off or yearly, with or without year) next to the birthday.
+- Gift ideas per person with optional page and budget; a price or stock watcher can be requested from the product-watching app.
+- Merge duplicates (the kept person also receives what it lacked) and delete, and **Buscar duplicados** to find likely pairs by name similarity, same e-mail or phone, or same birthday; it never merges on its own.
+- **Prepárame**: a written catch-up before seeing someone (what you talked about, what you owe each other, open reminders, upcoming dates, an opening question), written by the family model, or a plain outline when none is available.
+
+**Contact history**
+- A timeline per person with channel, summary and an optional date and time; adding an older conversation never moves the last-contact date backwards.
+- **Consultar historial** searches the whole recorded history (accent-insensitive, by person, channel, day and archived people, with exact totals) and **Descargar historial** exports every match as JSON or CSV. See [`docs/interaction-history.md`](docs/interaction-history.md) and [`docs/history-export.md`](docs/history-export.md).
+
+**Commitments**
+- Who promised what to whom and by when, in both directions (`i_owe`, `owed_to_me`), with status (open, done, dropped) and source. Filters, a review queue, a balance view of what you owe and are owed per person, and a section on every person page.
+- Ways in: manual, from a pasted mail or conversation (the local model proposes, with the literal supporting quote, and everything goes to review), from meeting minutes, from a meeting analysis of the requirements app, and from batches of chat messages that Faustus hands over for chats the user enabled (this app never reads WhatsApp itself).
+- Spoken days ("el viernes", "en dos semanas", "15 de octubre") become dates only when unambiguous; otherwise the words are kept and nothing is guessed.
+
+**Agenda and reminders**
+- Upcoming birthdays with age, reminders due, overdue and near commitments, and abandoned people (not contacted within their cadence) with a one-click "he hablado hoy".
+- Cooling contacts: people with at least two contacts and none for 90 days by default (adjustable).
+- Reminders with a due date, optionally tied to a person.
+- **Descargar calendario** exports birthdays, special dates, reminders and dated commitments as an `.ics` file.
+
+**Import, export and backup**
+- **Importar contactos** reads `.vcf` files (vCard 2.1, 3.0, 4.0), shows what would happen and imports on a click, only filling empty fields.
+- **Exportar contactos** downloads selected contacts as vCard 4.0.
+- JSON export and import for backups in Ajustes.
+
+**In the background**
+- Every hour, nudges go to the family daily digest: commitments due or overdue, reminders for today, birthdays and special dates a week ahead and on the day, and cooling relationships. Each is sent once.
+- Every 30 minutes the hub's mail is read for the e-mail aliases in the book to keep the last contact (date, channel and subject, never the body).
+- Optionally the last contact is updated from WhatsApp batches, one line per person and day, never message text.
+
+## Run it
+
+Requires Node.js 22.13 or later (built-in `node:sqlite` with FTS5). No native modules, no Docker.
 
 ```sh
 npm install
@@ -14,171 +55,25 @@ npm run build
 npm start          # http://127.0.0.1:5182
 ```
 
-`npm run open` starts the server and opens the browser on Windows. `npm run dev` runs the API (`node --watch`) and Vite together with the `/api` proxy configured automatically.
-
-The server binds to `127.0.0.1` only. If port 5182 is busy it walks up to the next free port and prints the address; set `PORT_STRICT=1` to fail instead.
-
-### Environment variables
+`npm run open` starts the server and opens the browser on Windows. `npm run dev` runs the API and Vite together. The server binds to `127.0.0.1`; if the port is busy it takes the next free one unless `PORT_STRICT=1`.
 
 | Variable | Purpose |
 | --- | --- |
 | `PEOPLE_PORT` / `PORT` | Preferred port (default `5182`). |
 | `PORT_STRICT=1` | Do not fall back to another port. |
-| `PEOPLE_DATA_DIR` | Data folder (default `<repo>/data`, gitignored). Contains `peoples-hoard.db` and `mcp-token`. |
-| `PEOPLE_ALLOWED_HOSTS` | Extra host names accepted behind a tunnel (see below). |
-| `PEOPLE_MAIL_AUTO=0` | Turn off the 30-minute pass that reads the hub's mail for the last contact (default on; see From the rest of the family). |
-| `PEOPLE_COMMITMENTS_AUTO=0` | Turn off the background sweep that reads meeting minutes from the Hoard Link hub (default on; see Commitments). |
-| `HOARD_HUB_URL` / `HOARD_EVENTS=0` | Where the Hoard Link hub is (found by itself by default), and a switch to stop sending events. |
-| `PEOPLE_URL` | MCP bridge: base URL of the running app (default `http://127.0.0.1:5182`). Must be local. |
-| `PEOPLE_TOKEN_FILE` / `PEOPLE_TOKEN` | MCP bridge: where to read the bearer token (default `<data dir>/mcp-token`). |
+| `PEOPLE_DATA_DIR` | Data folder (default `./data`, gitignored). |
+| `PEOPLE_ALLOWED_HOSTS` | Extra host names accepted behind a tunnel, comma-separated, exact or `*.suffix`. |
+| `PEOPLE_MAIL_AUTO=0` | Turn off the periodic mail pass for last contact. |
+| `PEOPLE_COMMITMENTS_AUTO=0` | Turn off the background sweep that reads meeting minutes. |
+| `HOARD_HUB_URL` / `HOARD_EVENTS=0` | Where the family hub is (found automatically by default) and a switch to stop sending events. |
+| `PEOPLE_URL`, `PEOPLE_TOKEN_FILE` / `PEOPLE_TOKEN` | MCP bridge: app URL and bearer token location. |
+| `HOARD_COPILOT=0` | Disable the Faustus copilot button and routes. |
 
-### Access from your phone (behind a tunnel)
-
-The server binds 127.0.0.1 and only answers requests whose `Host` is `localhost`, `127.0.0.1` or `[::1]`. To reach it from your phone through a tunnel that fronts the app (a private mesh network, a reverse proxy), list the extra host names in `PEOPLE_ALLOWED_HOSTS`, comma-separated, exact names or `*.suffix`: `PEOPLE_ALLOWED_HOSTS=my-pc.example,*.ts.net`. Port and letter case are ignored, and the `Origin` of API calls must resolve to one of those hosts too (any scheme or port). Cross-site *fetches* are still refused; opening the app from another page (a link, a bookmarklet, the share sheet) is a normal navigation and works.
-
-Once opened through the tunnel, the browser offers to install it (PWA).
-
-## What it does
-
-After a history search, **Descargar historial** exports every current match as
-JSON or UTF-8 CSV, across all pages. Filters and drafts survive errors; changing
-the query or format cancels a pending download. The read-only native
-`export_interactions` tool returns the complete file even beyond100rows or20KB.
-See [history export](docs/history-export.md) for formats and snapshot semantics.
-
-**Personas → Consultar historial** searches the complete recorded contact
-history, including conversations older than a profile's ten recent contacts.
-All search words match saved summaries, names or nicknames without accent
-distinctions. Filter by person, channel, complete browser-local days and archived
-people, and page through the exact matching total. Changing filters retires the
-previous result; closing/reopening and copilot refresh keep the draft. No
-external messages are read and no contact or latest-contact date is changed.
-The native `search_interactions` MCP tool and `GET /api/interactions` share this
-read-only engine. See [history filters and dates](docs/interaction-history.md).
-
-The contact timeline form accepts an optional local date and time. Leaving it
-empty logs the server's current time. A chosen date previews the browser's
-interpreted date/time, IANA zone and UTC offset before sending an explicit ISO
-instant through the existing API. Adding an older conversation never moves the
-native latest-contact date backwards. Across daylight-saving transitions the
-preview shows the browser's actual interpretation; it does not select between
-both occurrences of a repeated hour. Errors and copilot refresh preserve the
-date/channel/summary draft, including date-only drafts. No backend or MCP tool
-contract changes.
-
-In **Personas**, **Buscar duplicados** opens an explicit query over the whole
-address book through the existing `find_duplicate_people` engine and
-`GET /api/people/duplicates`. Similarity threshold, archived contacts and limit
-use the native filters; the report shows served/total pairs, scanned contacts,
-native reasons, both profile links and the history-based suggestion to retain.
-Similarity is a heuristic score. Search never merges or deletes a profile;
-manual merge remains in each profile. Closing/reopening keeps query filters and
-results, and the existing name/circle search, vCard export and copilot remain.
-The engine's existing legacy-alias normalization (`ensureNorms`) is unchanged;
-querying does not imply a globally byte-identical database. No new backend,
-dependency, model or MCP tool.
-
-- **Personas** — instant search (accent-insensitive, matches partial names anywhere in a word, plus nickname and alias), circle chips as a filter, cards with name, circles, "last contact 12 days ago" and a birthday-soon badge, and a quick new-person form.
-- **Persona page** — a live conversation brief combining facts, five recent contacts and open reminders; header (name, nickname, circles, birthday, location, desired contact cadence) editable as one form; summary and notes as textareas that save on blur; facts as an editable key/value list ("le gusta" / "el senderismo"); a contact timeline with a one-line add form ("he hablado hoy"); reminders with due date and a "done" checkbox; an alias editor (WhatsApp, e-mail, phone, other handle); archive, merge-with-a-duplicate and delete.
-- **Commitments** — who promised what to whom and by when, in two directions: what you owe a person (`i_owe`) and what a person owes you (`owed_to_me`). A page with filters (direction, status, person, overdue, text), a review queue, a form to add one, and the two ways to bring them in (below); a *Compromisos* section on every person page; a badge on the navigation with overdue items and proposals waiting. See *Commitments* below.
-- **Agenda** — upcoming birthdays with age when the year is known, reminders due, a *Compromisos* block (overdue and due this week) and an "abandonados" list of people you have not contacted within their desired cadence, with a one-click "he hablado hoy" that logs a quick interaction. **Descargar calendario** exports active birthdays as yearly events, open reminders and open commitments with a due day as dated events in an `.ics` file.
-- **Ajustes** — data folder and version, JSON export/import for backups (special dates included), and the switches below for nudges, cooling contacts and the last contact from WhatsApp.
-- **Prepárame** — a button on a person's page: the family model (through the hub) writes 3-7 lines before you see someone — what you talked about last, what you owe them and what they owe you, open reminders, upcoming dates — and an opening question. Without a model it shows the same material as a plain outline.
-- **Special dates** — per person, besides the birthday: anniversary, saint's day, a one-off day (`YYYY-MM-DD`, or `--MM-DD` without a year; yearly or once). They show on the Agenda, the `.ics` export, the family agenda and the daily digest.
-- **Contact import** — **Importar contactos** in Personas reads a `.vcf` (vCard 2.1/3.0/4.0, quoted-printable included), shows what would happen and imports on a click. Each card joins the person with the same UID (from this app's export), e-mail or phone, or the same exact name; otherwise a new person. It only fills what is empty (birthday, nickname, place), adds missing circles, e-mails and phones, keeps organisation, job title and note as facts and an `ANNIVERSARY` as a special date. A handle that belongs to someone else is never moved; a match by handle under a quite different name is flagged in the preview.
-- **Balance** — on Compromisos, *Qué debo* / *Qué me deben*: open commitments grouped by person with overdue counts; *Ver en la lista* filters the list.
-
-### Working on its own
-
-- **Nudges to the daily digest.** Every hour, while the app runs, each of these goes once to the hub as a `digest.item` event (`watch: "people"`, with a link to the person): commitments due today and overdue (both ways; a WhatsApp promise is named only by its action), reminders for today, birthdays and special dates a week ahead and on the day, and people the relationship is cooling with. A line is remembered only when the hub took it, so a hub that was away gets it later; more than three cooling people go out as one line. Ajustes switches it off; the Agenda shows how many are pending and sends them now. `GET /api/nudges`, `POST /api/nudges/send`, tool `people_nudges`.
-- **Cooling contacts.** People without a cadence of their own, with at least two contacts on the timeline, whose last contact is older than `cooling_days` (90 by default, 0 = off): "hace 5 meses que no hablas con…". The Agenda lists them under *Se enfrían* with *He hablado hoy*. People with a cadence stay in *Abandonados*.
-- **Last contact from WhatsApp.** The message batches Faustus already hands over for commitments (`commitments_from_messages`, only chats enabled there) also move the last contact of the people they are with: one *Mensajes de WhatsApp* line per person and day at the time of the latest message, never any message text; groups, unknown numbers and nickname-only chats do not count. Setting *whatsapp_last_contact* (on by default). Hoard Link itself offers the hub's mail (used for the last contact by mail) but no way to read Faustus's chats: they only arrive when Faustus sends them.
-- **Merge** now also takes from the duplicate what the kept person lacks (nickname, birthday, place, how you met, summary, cadence), appends its notes and moves its special dates.
-- **Contact export** — **Exportar contactos** in Personas lets you select the visible contacts and download a `.vcf`; **Descargar .vcf** on a person's page exports that contact. vCard 4.0 contains saved name, nickname, phone/e-mail aliases, birthday (including an unknown year), location and circles. Notes, facts and interaction history stay in People. The file keeps the same contact UID on repeated exports; no external service or synchronization is involved. The receiving address book decides whether to merge existing contacts.
-
-### Commitments
-
-A commitment has a direction (`i_owe` / `owed_to_me`), a person (or the name as written when they are not in the book), a text, a due day (`due`) or the words used (`due_text`), a status (`open`, `done`, `dropped`) and its source (`funes`, `chat`, `manual`, `text`, `mail`, `whatsapp`, with a reference, the literal quote and, for chat messages, the time of the message). People's Hoard owns them; other apps only feed it.
-
-- **From meetings.** Funes writes the minutes of a recorded meeting (summary, decisions and action items with evidence). People's Hoard asks for them through the Hoard Link hub (`scribe_minutes` on Funes, never by reading Funes's files) and turns each action item into a commitment: what *you* said you would do is `i_owe` (the other person is the counterpart), what someone else said is `owed_to_me`. Names resolve like everywhere else (exact, alias, fuzzy). Nothing goes straight into the list unless the direction and the person are both certain: a name that matches nobody or several people, an owner the minutes do not name (or give as `otros` or a speaker label such as `S1`), my own promise with no recipient the book knows, and a promise between two other people all go to a **review queue** instead. There you choose who owes (a promise made by *me* or *to me*), pick a candidate, create the person or discard; an item already in the list can be corrected the same way with *Editar* (direction, person, day). The meeting is logged once on each person's timeline as *Reunión: <title>*. While the hub answers, a sweep every 60 seconds reads `funes.minutes.ready` events (`GET <hub>/api/events?type=funes.minutes.ready&since_id=…`, with this app's token; the last id is remembered in the database; the first contact starts from "now", so old meetings are not replayed on their own: use `commitments_ingest_minutes` for those). `PEOPLE_COMMITMENTS_AUTO=0` switches the sweep off. To read a meeting again after a fix, `commitments_ingest_minutes(session_id, replace=true)` (add `regenerate=true` to have Funes write the minutes again) first drops what the earlier reading left that you have not touched (open, never edited, not chosen in the review queue; plus proposals still waiting) and then ingests; done, dropped, edited or deliberately discarded items stay.
-- **From text.** Paste a mail or a conversation: the local model (through the hub) proposes commitments, each with the exact words that support it; proposals whose quote is not literally in the text are dropped, and everything goes to the review queue, never straight in. With no model loaded the answer is `no_model`.
-- **From a Talos meeting analysis.** `commitments_import_talos` / `POST /api/commitments/import-talos` takes the output of Talos's `scribe_requirements` (`format: commitments`; `{ commitments | items: [...], meeting: { title, at, session_id } }`). Only items that Talos marked as firm commitments are imported; proposals ("podríamos", "could"), questions, decisions, requirements and anything unmarked come back in `rejected` with a `code` (`proposal`, `not_commitment`, `not_firm`, `no_text`, `no_source_ref`, `invalid`) and a reason. Each import keeps `source = funes`, the quote, the time of the sentence in the meeting (`source.at`) and the reference `talos:<session>#<item>`, which is the deduplication key: importing the same payload again, in any order, creates nothing (also after the commitment was completed, dropped, or its review settled). Direction, person and review rules are the same as for minutes (uncertain owner or person goes to the review queue). The answer counts `imported`, `queued`, `duplicates` and lists `rejected`.
-- **From WhatsApp.** `commitments_from_messages` (tool) / `POST /api/commitments/from-messages` takes a batch of messages the caller already read (Faustus hands them over through the hub, only for chats the user enabled; this app never reads WhatsApp) — each `{ id, chat_id, contact_name, phone, sender: "me" | "them" (or from_me), text, timestamp (ISO or epoch), is_group? }` — and records the promises in them. The pass is deterministic and fixed: Spanish and English promise verbs (`te lo mando`, `te paso`, `te pago`, `voy a mandarte`, `me encargo de`, `I'll send`, …), debts (`te debo`, `me debes`, `you owe me`, `tienes que mandarme`, `quedamos en que me lo pasas`) and time expressions (`el lunes`, `mañana`, `esta semana` = that Sunday, `la semana que viene`, `antes del 15`, `el 15 de octubre`, `en dos semanas`, `a fin de mes`) resolved against the day the message was written, never against today. Direction follows who is bound: `te lo mando` from you is `i_owe`, from them `owed_to_me`; `me debes` from you is `owed_to_me`, from them `i_owe`. Each commitment keeps `source = whatsapp`, the sentence that makes it (`source.quote`), the message time (`source.at`) and a reference `<chat>|<message id>`. Left alone on purpose: questions, conditionals and doubts anywhere in the clause, before or after the verb (`si quieres te lo mando`, `te lo mando el lunes si puedo`, `unless`, `a menos que`, `salvo que`, `aunque`, `creo que`, `no sé si`, `if possible`), hedges (`igual`, `maybe`), negations, past tense (`te lo mandé`), courtesy (`te mando un abrazo`), promises relayed through the chat (`dile a Ana que te lo mando`), the figure `me debes una`, quoted, forwarded and reported text, and group chats. An emphatic yes is not a condition (`si o si`, `sí o sí`, `no matter what`), though a real «si puedo» next to it still cancels the promise. A weekday after `de`/`del` or before `pasado` is a reference, not a deadline (`la cena del sábado pasado`). A message with several promises gives one commitment per clause (`te mando el informe el lunes y te llamo el martes`); a courtesy clause only drops itself. Irony (`sí, claro`, `eso dijo`, laughter plus `sin falta`), a «mañana» written between 00:00 and 05:59 (it may mean the same night) and a phone number in nobody's card whose name fits one person do not enter the list: they wait in the review queue (`doubtful`, `late_night`, `phone_unknown`; settling the last one saves the number on that person's card). A message may carry `name_unverified: true` (Faustus sets it for a hidden-id chat that only has a nickname and no phone): it is treated like an unknown phone, so it waits in review instead of being matched by the name alone. Emoji and laughter are removed from the action. Weak verbs (`te llamo`, `I'll call you`) count only with a day. The person is matched by phone (the alias of any kind, or the number in the chat id), then by name; a name that matches nobody keeps the name as written (no person is created), one that matches several goes to the review queue. A ledger of message ids (a hash of chat and id, never the text) makes re-sending a batch a no-op; `reprocess: true` reads them again (the same promise is still never recorded twice) and a commitment you deleted does not come back. `refine: true` additionally lets the local model read the messages the rules found nothing in; its findings only go to the review queue, with the quote checked against the message (off by default, never required); the text of those messages then goes to the hub's local model (it stays on the PC), and when the hub or the model is not there they are not marked as read, so the next call tries them again. The events are the usual ones: a promise of yours with a day sends `people.commitment.added` (direction and `source: whatsapp` in the data, so the hub's deadline rule works unchanged), the rest `people.commitment.noted`; the events carry only the action in plain words (`Mandar algo`, `Saldar una deuda`, `Llamar`, or `Compromiso de WhatsApp` when it is not known), never the sentence of the message nor the quote.
-- **From the assistant.** `commitment_add` records one said in a chat. A day is only kept if it is a real day or the words name exactly one ("el martes", "en dos semanas", "15 de octubre"); otherwise the words stay as `due_text`: nothing is guessed.
-- **Events.** `people.commitment.added {title, due, ref, person, …}` is sent only for a commitment you owe (`i_owe`) that has a day (when a commitment becomes that later, a day added or the direction fixed, it is sent then): the hub's rule turns it into a deadline in the paperwork app, with `ref = hoard://people/commitment/<id>` pointing back. Any other new commitment (someone owes you, or there is no day yet) is announced as `people.commitment.noted` with the same data as before. `people.commitment.done` and `people.commitment.overdue` (once per item; a new deadline earns a new one) are sent as always.
-- **Merge and delete.** Merging two people moves their commitments; deleting a person keeps their commitments with the name as written.
-
-### From the rest of the family (through the hub)
-
-Everything here talks to the Hoard Link hub and stays quiet without it; nothing is read from other apps' files.
-
-- **Who was at a meeting.** `people_from_minutes {minutes_id}` asks Funes for the minutes (`minutes_get`, falling back to `scribe_minutes` on an older Funes when asked to write them), matches each attendee by name, alias or e-mail address (several matches are never guessed) and writes *Reunión: <title>* on the day of the meeting on each person's timeline. It creates nobody: attendees that match no one come back as `unmatched`, several people as `ambiguous`. It is idempotent per meeting and person, also against the commitments road above (same title, same day, once), and links the person to the minutes in the hub's reference graph (`hoard://people/person/<id>` to `hoard://funes/minutes/<id>`). The hub's rule for `funes.minutes.ready` calls it by itself.
-- **Last contact from mail.** The hub reads the inbox once for the family. People's Hoard registers a mail interest whose `from_addresses` are the e-mail aliases of the people in the book (not archived people, one per mailbox, at most 300; registered again when the set changes, and a changed set re-reads the hub's stored mail), reads what came from them every 30 minutes while it runs (and with `contacts_sync_mail` or **Leer ahora** in the settings), and, for each person, keeps the date, the channel *Correo* and the subject as a one-line note, at most one line per person and day. The mail goes through the family's `famMailRouter` (hub only: People has no mail helper), asking for the list and category headers, so a newsletter or a Gmail promotions/social/forums mail from a contact's address is not counted as contact; the body is never stored, and no mail is claimed (it is not this app's). Only while the hub's mail gateway is on (`mailAvailable()`); the setting *Actualizar el último contacto con el correo* and `PEOPLE_MAIL_AUTO=0` turn it off.
-- **Gift ideas.** Per person: an idea, an optional page and an optional budget (`gift_idea_add`, `gift_ideas`, the *Ideas de regalo* section of the person's page). `gift_watch {idea_id}` (or *Vigilar precio*) asks Tantalus, through the hub, to watch it (`watcher_add` with the idea's text, page and budget, `source_ref = hoard://people/gift/<id>`) and keeps the watcher id; asking again answers the same watcher. `gift_days_before` days before a birthday (setting, default 21) the saved ideas that are still to give go to the daily digest as a `digest.item` event: "Cumpleaños de X en N días: ideas guardadas: …", once per person and birthday.
-- **Family agenda.** `GET /api/family/agenda` (the app's own token) answers with birthdays (`birthday`, with the age when the year is known), follow-ups due by each person's cadence, last contact plus the days they wanted to talk (`followup`; one already overdue stays on the first day of a window that includes today) and open commitments with a day (`deadline`, both directions; what I owe is `high`). The manifest says `"x-family": {"agenda": true}`.
-
-Birthdays are stored as `YYYY-MM-DD` (year known) or `--MM-DD` (year unknown); the upcoming window and age computation handle the Dec→Jan boundary and Feb 29 in non-leap years.
-
-## API
-
-All routes are JSON, validated with zod, and answer errors as `{ "error": "…" }` with a proper status code.
-
-| Route | Purpose |
-| --- | --- |
-| `GET /api/health` | `{ service: "peoples-hoard", version, dataDirConfigured }`, no auth. |
-| `GET /api/state` | UI bootstrap: version, data dir, circle counts, commitment counts (open, overdue, proposals waiting). |
-| `GET /api/people?q=&circle=&archived=` | Search/filter people (`archived`: `false` default, `true`, or `all`). |
-| `GET/POST/PATCH/DELETE /api/people[/:id]` | People CRUD; `GET /:id` returns the full record. |
-| `GET /api/people/:id/brief` | Live conversation brief with source ids, differing facts flagged and open commitments both ways. |
-| `POST /api/people/merge` | `{ keep_id, drop_id }` — merges a duplicate into a person. |
-| `POST/PATCH/DELETE /api/people/:id/aliases[/:id]`, `/facts`, `/interactions`, `/reminders` | Nested CRUD for each person. |
-| `GET /api/resolve?name=` | Find a person by name/alias: exact → alias → fuzzy, with candidates and scores. |
-| `GET /api/upcoming?days=30` | Birthdays and special dates in the window (with age/years when known), reminders due, "neglected" people (cadence) and `cooling` people. |
-| `POST /api/people/:id/prepare` | «Prepárame»: `{ status: ok \| no_model \| hub_down \| error, text, model, outline, counts }`. |
-| `POST /api/people/import-vcard` | `{ text, apply? }`: vCard import; `apply: false` (default) only reports what would happen. |
-| `POST /api/people/:id/dates`, `PATCH/DELETE /api/dates/:id`, `GET /api/dates/upcoming?days=` | Special dates. |
-| `GET /api/nudges`, `POST /api/nudges/send` | What deserves a word today and whether it already went to the digest; send now. |
-| `GET /api/calendar.ics` | Download all active birthdays, open reminders and open commitments with a due day as iCalendar events; Feb 29 birthdays recur on leap years. |
-| `GET/POST /api/commitments`, `GET/PATCH/DELETE /api/commitments/:id` | Commitments. List filters: `person`, `direction`, `status` (`open` default, `done`, `dropped`, `all`), `overdue=1`, `due_before`, `q`. The list also returns `pending_review`. |
-| `GET /api/commitments/digest?days=7` | Overdue and upcoming, grouped by person, with ready-to-say lines. |
-| `GET /api/commitments/review`, `POST /api/commitments/review/:id` | The review queue; `{ action: "accept" \| "discard", person_id \| create_person \| no_person, direction, text, due, due_text }`. |
-| `POST /api/commitments/import-talos` | `{ commitments \| items, meeting? }`: import the firm commitments of a Talos meeting analysis (deduplicated by source reference); everything else comes back in `rejected` with a reason. |
-| `POST /api/commitments/ingest` | `{ session_id, regenerate?, replace? }`: ask Funes for a meeting's minutes through the hub and ingest them. |
-| `POST /api/commitments/extract` | `{ text, person_hint? }`: propose commitments from pasted text (to the review queue). |
-| `POST /api/commitments/from-messages` | `{ messages, refine?, reprocess? }`: record the promises found in a batch of WhatsApp messages (see *From WhatsApp*); answers with counts and the commitments created. |
-| `GET/POST /api/commitments/sync` | State of the background sweep; `POST` runs one now. |
-| `GET /api/circles` | Circle names with counts. |
-| `GET /api/export` / `POST /api/import` | JSON backup and restore (people, aliases, facts, interactions, reminders and commitments). |
-| `POST /api/people/vcard` / `GET /api/people/:id/vcard` | Download selected `{ person_ids: [...] }` or one saved contact as UTF-8 `text/vcard` with an attachment filename. Selection order is retained and repeated ids are deduplicated. |
-| `GET/POST/PATCH/DELETE /api/gifts…` | Gift ideas: `GET /api/gifts?person=&status=`, `POST /api/people/:id/gifts`, `PATCH`/`DELETE /api/gifts/:id`, `POST /api/gifts/:id/watch`. |
-| `POST /api/meetings/from-minutes` | `{ minutes_id, generate? }`: the same as `people_from_minutes`. |
-| `GET/POST /api/mail-sync` | State of the mail pass; `POST` runs one now (`{ force }` also when switched off). |
-| `GET/POST /api/settings` | `{ gift_days_before, mail_sync, nudges, cooling_days, whatsapp_last_contact }`. |
-| `GET /api/family/agenda` | The family agenda contract (birthdays, follow-ups, commitments with a day); needs this app's own bearer token. |
-| `GET /api/agent/tools` | Tool catalogue (name, description, JSON schema, annotations) and the assistant instructions. |
-| `POST /api/agent/call` | `{ name, arguments }` with `Authorization: Bearer <token>`; used by the MCP bridge. |
-| `GET /api/copilot/info` | Faustus copilot: `{ app_id, app_name, data_space_id, panel_url, ... }`; 503 `copilot_unavailable` when Faustus is not reachable. |
-| `GET /api/copilot/panel.js` | The Faustus panel script, relayed from Faustus. |
-| `GET /api/copilot/launcher.js` | The floating button and panel launcher the app adds to every HTML page. |
-| `POST /api/copilot/proxy` | `{ path, method, body? }`: relays the panel's chat calls to Faustus (only `/api/chat_stream`, `/api/chat/*`, `/api/session(s)` and `/api/hoard-copilot/*`), adds this app's origin and keeps the Faustus token out of the browser. |
-
-## Faustus copilot
-
-Every page has a floating **Faustus** button (bottom right) that opens the Faustus assistant in a side panel. The conversation, model, memory and tools live in Faustus: this app only relays the panel (`/api/copilot/*`) and keeps no history. It needs Faustus running (`HOARD_FAUSTUS_URL`, default `http://127.0.0.1:7000`); without it the button explains that the copilot is unavailable and the rest of the app is unaffected.
-
-What every turn tells the assistant (`window.hoardCopilot.context()`, read through the app's own API):
-
-- `view.page` (`people`, `person`, `agenda`, `commitments`, `settings`), the search and circle filters of Personas, the window of days in Agenda, the commitment filters and the number of proposals waiting in Compromisos.
-- `active_objects`: on a person's page, the person (circles, birthday, location, summary, counts), their facts, open reminders, open commitments and gift ideas; in Compromisos, the person used as a filter and the commitment whose edit form is open. A creation form, `#/personas/new` or an unknown id adds no object and never fails.
-- `view.editor`: the fields typed in the open form and which of them changed (the person's data, the summary and notes drafts, a new fact, alias, contact, reminder, gift idea, commitment or person, the merge search, the pasted meeting or text, the settings). Several open forms are listed in `view.editors`.
-
-When the assistant finishes a turn the open page reloads its data in place: the list, the person, their commitments and gifts, the agenda. Forms keep what you typed. Editing a person's data saves **only the fields you changed**, so a change the assistant made to another field in the meantime is not overwritten (the backend `PATCH` merges).
-
-Turn it off with `HOARD_COPILOT=0` (no `/api/copilot/*` routes, no button). The client is in `client/src/copilot-context.js` (context and refresh) and `client/src/copilot-hooks.js` (what each page and form reports).
+Behind a private tunnel, list the host names in `PEOPLE_ALLOWED_HOSTS`; the browser then offers to install the app as a PWA.
 
 ## Connect an assistant (MCP)
 
-`server/mcp.js` is a stdio MCP server that proxies every call to the running app, so only one process ever opens the database. Keep the app running while the assistant works.
+`server/mcp.js` is a stdio MCP server that proxies every call to the running app, so only one process opens the database. Keep the app running while the assistant works.
 
 ```json
 {
@@ -188,87 +83,49 @@ Turn it off with `HOARD_COPILOT=0` (no `/api/copilot/*` routes, no button). The 
 }
 ```
 
-`faustus-plugin.json` describes the app for Faustus (health check, launch hint and the MCP command with placeholders).
+`faustus-plugin.json` describes the app for Faustus. Tools by group (the full catalogue is at `GET /api/agent/tools`; REST routes are in [`docs/API.md`](docs/API.md)):
 
-Tools (38):
-
-| Tool | Purpose |
+| Area | Tools |
 | --- | --- |
-| `find_people` | Fuzzy, accent-insensitive, partial-name search over people, nicknames and aliases; returns scored candidates. |
-| `export_people_vcard` | Read-only vCard 4.0 export for explicit `person_ids`; returns `text`, `filename`, `media_type`, `count` and stable ids. Same native serializer as the UI/API; does not infer names, phone types or missing birthday years. |
-| `get_person` | Full record: facts, last 10 interactions, open reminders, open commitments both ways, days since last contact. |
-| `search_interactions` | Read-only full saved history; all-word accent-insensitive text, exact person id, channel, inclusive ISO instants, archived toggle and stable pagination with exact total. |
-| `export_interactions` | Complete JSON/UTF-8 CSV snapshot of all saved history matching the same filters, without pagination or the ordinary response cap. |
-| `prepare_person_chat` | Compact conversation brief, recomputed after edits, with source ids and conflicting fact values flagged. |
-| `upsert_person` | Create or update a person by id/exact name; all fields besides name are partial. |
-| `add_alias` | Attach a WhatsApp/e-mail/phone/other handle so future messages resolve to a person; idempotent. |
-| `add_fact` | Record a free-form key/value fact ("le gusta" / "el senderismo"); idempotent. |
-| `log_interaction` | Log a contact and update when you last spoke. |
-| `add_reminder` | Create a reminder, optionally tied to a person. |
-| `complete_reminder` | Mark a reminder done. |
-| `upcoming` | Birthdays, reminders due and neglected people within N days, with a one-line summary. |
-| `list_people` | List people, optionally filtered by circle. |
-| `commitments_list` | Commitments filtered by person, direction, status, overdue and due date. |
-| `commitment_add` | Record a promise: I owe someone something, or they owe me. Words like "el viernes" become a date when they name one day. |
-| `commitment_update` | Change text, day, person or direction of a commitment. |
-| `commitment_done` / `commitment_drop` | Mark a commitment fulfilled, or no longer applicable. |
-| `commitments_review` | List the review queue, or settle one proposal (accept with a person, or discard). Asks the user first. |
-| `commitments_ingest_minutes` | Ask Funes (through the hub) for a meeting's minutes and record their action items (`replace` re-reads a meeting, dropping what the user has not touched; `regenerate` rewrites the minutes). Reports `no_model`, `hub_down`, `tool_missing`, `unknown_session` or `funes_error` instead of failing. |
-| `commitments_extract_text` | Propose commitments from pasted text with the local model; they go to the review queue. |
-| `commitments_from_messages` | Record the promises in a batch of chat messages (WhatsApp): Spanish/English rules, days resolved from the message date, deduplicated by message id, person matched by phone or name; `refine` adds an optional model pass that only proposes. |
-| `commitments_digest` | What is overdue and due soon, in words: "le debes a X…", "X te debe…". |
-| `people_from_minutes` | Log "Reunión: <title>" on each attendee of a meeting who is in the book (minutes from Funes through the hub); reports `unmatched` and `ambiguous`; idempotent. |
-| `contacts_sync_mail` | Read the hub's mail from the people in the book and keep date, channel and subject as their last contact (never a body); `status` is `ok`, `off`, `mail_unavailable`, `no_addresses`, `register_failed` or `read_failed`. |
-| `gift_idea_add` / `gift_ideas` | Save a gift idea for a person (page and budget optional; the same idea is not saved twice) / list ideas for one person or everyone. |
-| `gift_watch` | Ask Tantalus (through the hub) to watch a gift idea's price or stock and keep the watcher id. Reports `hub_down`, `tool_missing`, `tantalus_unavailable` or `tantalus_error`. |
-| `find_duplicate_people` | Likely duplicate pairs (similar names, the same e-mail or phone written differently, the same birthday) with score, reasons and which one to keep; read-only, `GET /api/people/duplicates` is the same. |
-| `merge_people` | Merge a duplicate into another person; commitments move too (destructive). |
-| `delete_person` | Delete a person and everything linked to them; commitments stay with the name as written (destructive). |
-| `person_date_add` / `person_date_remove` | Save a special date (label, `YYYY-MM-DD` or `--MM-DD`, yearly or once; the same one is not saved twice) / remove it by id. |
-| `people_nudges` | Read-only: commitments due or overdue, reminders for today, birthdays and special dates this week, cooling people; each says whether it was sent. |
-| `prepare_to_meet` | The written catch-up before seeing someone (family model through the hub); outline only when no model answers. |
-| `import_people_vcard` | Import a `.vcf` text; `apply: false` first to preview. |
+| People | `find_people`, `get_person`, `list_people`, `upsert_person`, `add_alias`, `add_fact`, `find_duplicate_people`, `merge_people`, `delete_person`, `person_date_add`, `person_date_remove` |
+| History | `log_interaction`, `search_interactions`, `export_interactions` |
+| Reminders and agenda | `add_reminder`, `complete_reminder`, `upcoming`, `people_nudges` |
+| Commitments | `commitments_list`, `commitment_add`, `commitment_update`, `commitment_done`, `commitment_drop`, `commitments_review`, `commitments_digest`, `commitments_ingest_minutes`, `commitments_extract_text`, `commitments_from_messages`, `commitments_import_talos` |
+| Preparation | `prepare_person_chat`, `prepare_to_meet`, `people_from_minutes` |
+| Mail and gifts | `contacts_sync_mail`, `gift_idea_add`, `gift_ideas`, `gift_watch` |
+| vCard | `import_people_vcard`, `export_people_vcard` |
 
-Every description ends with a `Sinónimos:` line of Spanish words. Ambiguous names return `candidates` so the assistant can ask instead of guessing — two people can share a first name.
+Names are matched fuzzily; ambiguous names return candidates so the assistant can ask, since two people can share a first name. Destructive tools (merge, delete) ask first.
 
-## Data and limits
+## Connection with Faustus and the Hoard family
 
-- `data/peoples-hoard.db` — SQLite in WAL mode; schema migrations in `server/db.js` (`schema_version` table); a hand-maintained FTS5 index (`people_fts`) over name, nickname, aliases, summary, notes and facts, with accent folding when the SQLite build supports it.
-- `data/mcp-token` — 32 random bytes written at every start; never committed.
-- Search combines a fold-based substring pass (catches mid-word partial matches and accents) with an FTS5 prefix pass for broader recall over notes/facts.
-- Requests are accepted only from `localhost` / `127.0.0.1` origins; cross-site requests are rejected.
-- An alias's `kind` + `value` is globally unique: one WhatsApp name, e-mail or phone number can only ever resolve to one person.
-- The only network calls are to the local Hoard Link hub (events, the Funes minutes proxy, the local model, its mail gateway, Tantalus's watchers and the reference graph); when it is not there the app works as before and says so where it matters.
+- **Copilot**: every page has a floating Faustus button that opens the assistant in a side panel. The conversation lives in Faustus; this app relays it and tells the assistant the page, filters, the person on screen and the form being edited. After each turn the page reloads its data without losing what you typed, and edits save only the fields you changed.
+- **Hub**: events and the daily digest, the local model for catch-ups and commitment extraction, the mail gateway, meeting minutes from the recording app, product watchers, and the family agenda (`GET /api/family/agenda`: birthdays, follow-ups by cadence, open commitments with a day). Without the hub the app works as before and says so where it matters.
+- **Skills**: `faustus-plugin.json` names the family skills `personal-crm-follow-ups` and `hoard-meeting-prep`.
 
-## Verification
+## Data and security
+
+- `data/peoples-hoard.db`: SQLite in WAL mode with versioned migrations and a full-text index over names, aliases, notes and facts. `data/mcp-token`: a random token written at every start, never committed.
+- An alias (kind + value) resolves to exactly one person. E-mails and phone numbers are compared in normalised form.
+- Requests are accepted only from `localhost` / `127.0.0.1` hosts and origins (plus `PEOPLE_ALLOWED_HOSTS`); cross-site requests are rejected.
+- The only network calls go to the local hub. Birthdays are stored as `YYYY-MM-DD` or `--MM-DD` (year unknown), handling 29 February.
+
+## Project layout
+
+| Path | Contents |
+| --- | --- |
+| `server/` | Express API, SQLite access, people, aliases, duplicates, interactions, commitments, mail sync, gifts, agenda, calendar export, MCP bridge |
+| `server/hoard-commons/`, `server/hoard-link.js` | Vendored shared code of the Hoard family; do not edit here |
+| `client/` | React 19 + Vite + Tailwind v4 (Personas, Persona, Agenda, Compromisos, Ajustes) |
+| `docs/` | API reference and history documentation |
+| `scripts/` | `launch.mjs`, `dev.mjs` |
+| `tests/` | `node:test` suites |
 
 ```sh
-npm test        # node --test tests/*.test.js — dates/folding, domain logic, HTTP API, agent auth and tools, commitments (with a fake hub)
-npm run build   # vite build → dist/
+npm test         # node --test tests/*.test.js
+npm run build    # vite build -> dist/
 ```
 
 Tests use temporary data directories and never touch `data/`.
 
-## Shared with the family (Hoard Link 0.8)
-
-`server/hoard-link.js` and `server/hoard-commons/` are vendored copies of the commons. People uses them for: spoken due dates (`parseDue`: weekdays, «en dos semanas», «fin de mes», «3 nov»; vague words such as «la semana que viene» stay as `due_text`), the `.ics` export (`buildIcs`: birthdays repeat yearly, all-day, with the same UIDs as before), accent folding, `addDays` / `daysBetween`, contact handle normalisation (`normalizeEmail`, `normalizePhone`: an alias keeps the value as typed and a comparison key `aliases.norm`, so `Ana+news@Example.com` and `ana@example.com`, or `600 11 22 33` and `+34 600112233`, are one handle, and one handle still belongs to one person; rows written before the key existed are filled in the first time they are looked at), the duplicate finder (`nameSimilarity`), the mail router for the last contact, the guard, the agent routes (`/api/agent/*`, one JSON error envelope `{ error, code?, issues?, candidates? }`), the MCP bridge, the SPA server, the SQLite wrapper (`BEGIN IMMEDIATE`, savepoints, busy timeout, WAL checkpoint on exit), the background timers and the port and token helpers. The MCP token (`<data>/mcp-token`) is created once and kept across restarts; SIGINT / SIGTERM stop the background passes and close the database cleanly.
-
-## Layout
-
-```
-server/   app.js (Express), index.js (boot), db.js, people.js, aliases.js, handles.js, duplicates.js, facts.js,
-          interactions.js, reminders.js, commitments.js, whatsapp.js, commitments-poller.js, meetings.js, mailsync.js, gifts.js, agenda.js, background.js, hub-chat.js, upcoming.js, calendar.js, dates.js, text.js, routes.js,
-          agent-tools.js, mcp.js,
-          hoard-link.js + hoard-commons/ (vendored from Hoard Link 0.8: due dates, iCalendar, text and handle normalisation, guard, agent routes, MCP bridge, SPA, database, background timers, token and port helpers; do not edit)
-client/   React 19 + Vite + Tailwind v4 (pages: Personas, Persona with its gift ideas, Agenda, Compromisos, Ajustes)
-scripts/  launch.mjs, dev.mjs
-tests/    node:test suites
-```
-
 License: MIT (see `LICENSE`).
-
-## Skills
-
-The `skills` block of `faustus-plugin.json` names the procedures of the family's skill library that fit this app's work: `personal-crm-follow-ups`, `hoard-meeting-prep`. The hub's Skills tab shows and changes them. The MCP bridge serves the local shelf through `skills_list`, `skill_read`, connection instructions and `skill-<slug>` prompts, including when the library is offline.
-
-The complete Node commons copy is synchronized from the Hub. `export_interactions` opts out of the normal agent result cap, so JSON snapshots and UTF-8 CSV attachments retain every matching row through HTTP and MCP. Ordinary history searches remain capped and paginated.
