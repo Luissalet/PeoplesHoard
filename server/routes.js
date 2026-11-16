@@ -25,6 +25,7 @@ import * as personDates from "./person-dates.js";
 import { nudgesReport, nudgeSweep, nudgesEnabled, setNudgesEnabled, coolingDays, setCoolingDays } from "./nudges.js";
 import { prepareToMeet } from "./prepare.js";
 import { whatsappLastContact, setWhatsappLastContact } from "./whatsapp.js";
+import * as contexts from "./contexts.js";
 
 // Express 4 does not catch a rejected promise: hand it to the error handler.
 const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
@@ -38,6 +39,11 @@ const exportSchema = z.object({
   commitments: z.array(z.record(z.string(), z.any())).optional(),
   gift_ideas: z.array(z.record(z.string(), z.any())).optional(),
   person_dates: z.array(z.record(z.string(), z.any())).optional(),
+  contexts: z.object({
+    contexts: z.array(z.record(z.string(), z.any())).optional(),
+    items: z.array(z.record(z.string(), z.any())).optional(),
+    members: z.array(z.record(z.string(), z.any())).optional(),
+  }).optional(),
 });
 
 export function installRoutes(app, { version, dataDirConfigured }) {
@@ -231,6 +237,52 @@ export function installRoutes(app, { version, dataDirConfigured }) {
     return out ? res.json(out) : notFound(res);
   }));
 
+  // ---------- Contexts (one living card per person or group) ----------
+  app.get("/api/contexts", (req, res) => {
+    res.json({ contexts: contexts.listContexts({ q: req.query.q || "", kind: req.query.kind || "", limit: Number(req.query.limit) || 200 }) });
+  });
+  app.post("/api/contexts", (req, res) => {
+    const out = contexts.createContext(req.body || {});
+    res.status(out.created ? 201 : 200).json(out);
+  });
+  // quick capture: only the text is required; person or context says where it goes
+  app.post("/api/contexts/capture", (req, res) => {
+    const out = contexts.capture(req.body || {});
+    res.status(out.created ? 201 : 200).json(out);
+  });
+  app.get("/api/contexts/upcoming", (req, res) => {
+    res.json({ items: contexts.upcomingContextItems({ days: req.query.days ? Number(req.query.days) : 60 }) });
+  });
+  app.get("/api/contexts/:id", (req, res) => {
+    const out = contexts.contextCard(req.params.id, { baseUrl: getPublicUrl() });
+    return out ? res.json(out) : notFound(res);
+  });
+  app.patch("/api/contexts/:id", (req, res) => {
+    const out = contexts.updateContext(req.params.id, req.body || {});
+    return out ? res.json(out) : notFound(res);
+  });
+  app.delete("/api/contexts/:id", (req, res) => res.json({ ok: contexts.deleteContext(req.params.id) }));
+  app.post("/api/contexts/:id/reply", (req, res) => {
+    const out = contexts.setAwaitingReply(req.params.id, (req.body || {}).since || null);
+    return out ? res.json(out) : notFound(res);
+  });
+  app.post("/api/contexts/:id/items", (req, res) => {
+    const out = contexts.addItem(req.params.id, req.body || {});
+    res.status(out.created ? 201 : 200).json(out);
+  });
+  app.patch("/api/context-items/:id", (req, res) => {
+    const out = contexts.updateItem(req.params.id, req.body || {});
+    return out ? res.json(out) : notFound(res);
+  });
+  app.delete("/api/context-items/:id", (req, res) => res.json({ ok: contexts.deleteItem(req.params.id) }));
+  // the context of a person, created the first time it is asked for
+  app.get("/api/people/:id/context", (req, res) => {
+    const person = people.getPerson(req.params.id);
+    if (!person) return notFound(res);
+    const context = contexts.ensurePersonContext(person.id);
+    res.json(contexts.contextCard(context.id, { baseUrl: getPublicUrl() }));
+  });
+
   // ---------- Meetings and mail (from the hub) ----------
   app.post("/api/meetings/from-minutes", asyncRoute(async (req, res) => {
     const body = req.body || {};
@@ -288,6 +340,7 @@ export function installRoutes(app, { version, dataDirConfigured }) {
       commitments: commitments.listCommitments({ status: "all", limit: 2000 }),
       gift_ideas: gifts.listGifts({ status: "all", limit: 1000 }),
       person_dates: ids.flatMap((id) => personDates.listPersonDates(id)),
+      contexts: contexts.exportContexts(),
     });
   });
 
@@ -380,7 +433,8 @@ export function installRoutes(app, { version, dataDirConfigured }) {
         // an entry that does not validate is skipped rather than failing the whole import
       }
     }
-    res.json({ people: importedPeople, aliases: importedAliases, facts: importedFacts, interactions: importedInteractions, reminders: importedReminders, commitments: importedCommitments, gift_ideas: importedGifts, person_dates: importedDates });
+    const importedContexts = data.contexts ? contexts.importContexts(data.contexts, idMap) : { contexts: 0, items: 0 };
+    res.json({ people: importedPeople, aliases: importedAliases, facts: importedFacts, interactions: importedInteractions, reminders: importedReminders, commitments: importedCommitments, gift_ideas: importedGifts, person_dates: importedDates, contexts: importedContexts.contexts, context_items: importedContexts.items });
   });
 
   // PWA manifest and service worker.

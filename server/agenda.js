@@ -4,6 +4,7 @@ import { listPeople } from "./people.js";
 import { listCommitments } from "./commitments.js";
 import { listReminders } from "./reminders.js";
 import { upcomingPersonDates, personDateTitle } from "./person-dates.js";
+import { agendaContextItems } from "./contexts.js";
 import { parseBirthday, addDays, localDate, today as todayLocal } from "./dates.js";
 
 let publicUrl = "http://127.0.0.1:5182";
@@ -99,5 +100,7 @@ export function agendaItems(from, to, _sphere = "", { today = todayLocal() } = {
       detail: c.due < from || c.overdue ? `Venció el ${c.due}` : (c.source?.quote ? `«${c.source.quote}»`.slice(0, 200) : ""),
     });
   }
+  // plans and pending things kept in a context, on their day
+  items.push(...agendaContextItems(from, to, { today, baseUrl: publicUrl }));
   return items;
 }

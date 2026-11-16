@@ -194,6 +194,49 @@ export const MIGRATIONS = [
   );
   CREATE INDEX person_dates_person ON person_dates(person_id);
   `,
+  // 7: contexts, one living card per person or per group (the house, the team), and the things kept in it: gift ideas and
+  // wishes, plans with a day and how many days before to be reminded, pending and promised things, tastes and places.
+  // A person's context is unique (person_id); a group has a name and its members. `awaiting_reply_since` is the day a
+  // reply is owed, so the digest can say "sin contestar a…".
+  `
+  CREATE TABLE contexts (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'group' CHECK (kind IN ('person', 'group')),
+    person_id TEXT NULL REFERENCES people(id) ON DELETE CASCADE,
+    notes TEXT NOT NULL DEFAULT '',
+    awaiting_reply_since TEXT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE UNIQUE INDEX contexts_person ON contexts(person_id) WHERE person_id IS NOT NULL;
+  CREATE INDEX contexts_kind_name ON contexts(kind, name COLLATE NOCASE);
+
+  CREATE TABLE context_members (
+    context_id TEXT NOT NULL REFERENCES contexts(id) ON DELETE CASCADE,
+    person_id TEXT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+    PRIMARY KEY (context_id, person_id)
+  );
+  CREATE INDEX context_members_person ON context_members(person_id);
+
+  CREATE TABLE context_items (
+    id TEXT PRIMARY KEY,
+    context_id TEXT NOT NULL REFERENCES contexts(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL DEFAULT 'note' CHECK (kind IN ('idea', 'wish', 'plan', 'pending', 'taste', 'place', 'note')),
+    text TEXT NOT NULL,
+    url TEXT NOT NULL DEFAULT '',
+    budget REAL NULL,
+    due TEXT NULL,
+    remind_days_before INTEGER NULL,
+    status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'done', 'dropped')),
+    source TEXT NOT NULL DEFAULT 'manual',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    done_at TEXT NULL
+  );
+  CREATE INDEX context_items_context ON context_items(context_id, status);
+  CREATE INDEX context_items_due ON context_items(status, due);
+  `,
 ];
 
 let database = null;

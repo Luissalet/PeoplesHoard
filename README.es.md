@@ -20,6 +20,13 @@ Los mismos datos se ofrecen a un asistente por MCP. Es una app de la familia Hoa
 - Fusionar duplicados (la persona que se conserva recibe también lo que le faltaba) y borrar, y **Buscar duplicados** para localizar pares probables por parecido de nombre, mismo correo o teléfono o mismo cumpleaños; nunca fusiona por su cuenta.
 - **Prepárame**: un repaso escrito antes de ver a alguien (de qué hablasteis, qué os debéis, recordatorios abiertos, fechas próximas, una pregunta para empezar), redactado por el modelo de la familia, o un esquema simple si no hay modelo.
 
+**Contextos**
+- Una ficha viva por persona o por grupo (la casa, el equipo, los del curso): ideas de regalo y lista de deseos, planes con fecha, pendientes y promesas, gustos y lugares, cada cosa con página, presupuesto y día opcionales.
+- **Apuntar algo** captura en una línea: el texto, el tipo y, si se quiere, el contexto y el día. Lo que se apunta sin persona y sin contexto cae en «Sin asignar», así no se pierde nada y se puede archivar después. Lo mismo abierto no se guarda dos veces.
+- Un plan o un pendiente con día vuelve en el resumen diario desde un número de días antes (21 por defecto, ajustable por elemento), sale en la agenda de la familia y en la exportación `.ics`, y aparece en **Lo que se acerca** con los días que quedan.
+- **Espero respuesta** apunta el día en que se debe una respuesta, para que el resumen diga «sin contestar a…» y cuánto hace; **Ya he contestado** lo quita.
+- La ficha de una persona muestra además su próximo cumpleaños y sus fechas señaladas, los compromisos abiertos en ambos sentidos y cuánto hace del último contacto; al fusionar dos personas, lo apuntado en ambas fichas queda en la que se conserva.
+
 **Historial de contactos**
 - Línea temporal por persona con canal, resumen y fecha y hora opcionales; añadir una conversación antigua nunca retrasa la fecha del último contacto.
 - **Consultar historial** busca en todo el historial registrado (sin acentos, por persona, canal, día y personas archivadas, con totales exactos) y **Descargar historial** exporta todas las coincidencias en JSON o CSV. Véanse [`docs/interaction-history.md`](docs/interaction-history.md) y [`docs/history-export.md`](docs/history-export.md).
@@ -93,6 +100,7 @@ Tras un túnel privado, indica los nombres de host en `PEOPLE_ALLOWED_HOSTS`; el
 | Compromisos | `commitments_list`, `commitment_add`, `commitment_update`, `commitment_done`, `commitment_drop`, `commitments_review`, `commitments_digest`, `commitments_ingest_minutes`, `commitments_extract_text`, `commitments_from_messages`, `commitments_import_talos` |
 | Preparación | `prepare_person_chat`, `prepare_to_meet`, `people_from_minutes` |
 | Correo y regalos | `contacts_sync_mail`, `gift_idea_add`, `gift_ideas`, `gift_watch` |
+| Contextos | `context_list`, `context_get`, `context_create`, `context_capture`, `context_item_add`, `context_item_update`, `context_item_remove`, `context_upcoming` |
 | vCard | `import_people_vcard`, `export_people_vcard` |
 
 Los nombres se resuelven de forma aproximada; si son ambiguos se devuelven candidatos para que el asistente pregunte, ya que dos personas pueden compartir nombre de pila. Las herramientas destructivas (fusionar, borrar) piden confirmación.
@@ -114,9 +122,9 @@ Los nombres se resuelven de forma aproximada; si son ambiguos se devuelven candi
 
 | Ruta | Contenido |
 | --- | --- |
-| `server/` | API Express, acceso a SQLite, personas, alias, duplicados, interacciones, compromisos, sincronización de correo, regalos, agenda, exportación de calendario, puente MCP |
+| `server/` | API Express, acceso a SQLite, personas, alias, duplicados, interacciones, compromisos, sincronización de correo, regalos, contextos, agenda, exportación de calendario, puente MCP |
 | `server/hoard-commons/`, `server/hoard-link.js` | Código común de la familia Hoard incluido tal cual; no se edita aquí |
-| `client/` | React 19 + Vite + Tailwind v4 (Personas, Persona, Agenda, Compromisos, Ajustes) |
+| `client/` | React 19 + Vite + Tailwind v4 (Personas, Persona, Agenda, Compromisos, Contextos, Contexto, Ajustes) |
 | `docs/` | Referencia de la API y documentación del historial |
 | `scripts/` | `launch.mjs`, `dev.mjs` |
 | `tests/` | Suites de `node:test` |

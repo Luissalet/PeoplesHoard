@@ -20,6 +20,7 @@ import { exportPeopleVcard, vcardSelection, importPeopleVcard, vcardImportInput 
 import * as personDates from "./person-dates.js";
 import { nudgesReport } from "./nudges.js";
 import { prepareToMeet } from "./prepare.js";
+import * as contexts from "./contexts.js";
 
 export const AGENT_INSTRUCTIONS = `People's Hoard is the user's private address book: who people are, what to remember about them, and when they last spoke.
 Resolve ambiguous names by asking the user which person they mean — never guess when find_people or get_person returns several candidates; two people can share a first name.
@@ -32,7 +33,8 @@ merge_people and delete_person are irreversible: confirm with the user before ca
 Commitments are promises: "i_owe" is what the user must do for someone, "owed_to_me" is what someone owes the user. Record one with commitment_add only when the user said it (or confirms it), with the person and, if given, the day; never invent a deadline: pass due_text in the user's words ("el viernes") and let the server turn it into a date. Before saying what is pending, call commitments_digest or commitments_list; when the user asks how to catch up with someone, prepare_person_chat already lists the open commitments both ways. Promises made in WhatsApp chats come in with commitments_from_messages (the caller hands over the messages it read; this app never reads WhatsApp itself and keeps no message text except the sentence that makes each promise). Firm commitments that Talos found in a meeting (its scribe_requirements, format commitments) come in with commitments_import_talos: only firm commitments are imported, proposals (podríamos, could, conditionals), questions, decisions and requirements are rejected with the reason, and the same source reference is never imported twice. Meeting minutes from Funes come in with commitments_ingest_minutes (give the session id) and text the user pastes goes through commitments_extract_text: both only propose, and commitments_review shows what waits for a decision (a name that matches nobody, several people with the same name): ask the user before resolving it.
 people_from_minutes puts "Reunión: <title>" on the timeline of each attendee of a meeting who is in the book (it takes the id of the minutes, which Funes announces); it never creates people, and attendees it cannot match are returned as unmatched or ambiguous. contacts_sync_mail reads from the hub the mail sent by the people in the book and keeps only the date, the channel and the subject as the last contact; it never reads or stores a body.
 Gift ideas: save one with gift_idea_add when the user mentions something a person would like (or they say what to give); list them with gift_ideas; gift_watch asks Tantalus to watch the idea's price or stock. Some days before a birthday the saved ideas reach the daily digest by themselves.
-Special dates besides the birthday (an anniversary, a saint's day) go in with person_date_add, only when the user gives the day. people_nudges says what deserves attention today (commitments due or overdue, birthdays and special dates this week, people a relationship is cooling with); the same lines reach the daily digest on their own. Before the user sees someone, prepare_to_meet writes a short catch-up with the family model (prepare_person_chat is the same material as data). import_people_vcard reads a .vcf: call it first with apply false, show what it would do, and apply only after the user agrees.`;
+Special dates besides the birthday (an anniversary, a saint's day) go in with person_date_add, only when the user gives the day. people_nudges says what deserves attention today (commitments due or overdue, birthdays and special dates this week, people a relationship is cooling with); the same lines reach the daily digest on their own. Before the user sees someone, prepare_to_meet writes a short catch-up with the family model (prepare_person_chat is the same material as data). import_people_vcard reads a .vcf: call it first with apply false, show what it would do, and apply only after the user agrees.
+Contexts are the living card of a person or of a group (the house, the team, the people from the course): gift ideas and wishes, plans with a day and how many days before to be reminded, pending and promised things, tastes and places. When the user drops an idea in passing ("apunta que a Marta le gustaría…", "no olvidar reservar para el cumpleaños de…"), use context_capture with the text and the person or context: it files it in one call and creates the person's context the first time. Read a card with context_get before answering what is pending with someone or what to give them; context_item_add is for a full item (kind, page, budget, day, days before to remind); context_item_update marks it done or dropped. A capture with no person and no context lands in "Sin asignar" so nothing is lost.`;
 
 const fail = (message, opts = {}) => {
   throw Object.assign(new Error(message), { status: 400, ...opts });
@@ -473,6 +475,82 @@ TOOLS.push(
     vcardImportInput,
     {},
     importPeopleVcard,
+  ),
+  tool("context_list",
+    "List the contexts (one living card per person or group) with how much is open in each.\nRead-only. A context gathers what must not be forgotten about a person or a group: gift ideas and wishes, plans with a day, pending and promised things, tastes and places. q filters by name; kind is person or group.\nSinónimos: contextos, fichas por persona, qué tengo apuntado de, grupos, la casa, el equipo",
+    z.object({ q: z.string().trim().max(120).default(""), kind: z.enum([...contexts.CONTEXT_KINDS, ""]).default(""), limit: z.number().int().min(1).max(500).default(200) }),
+    RO,
+    ({ q, kind, limit }) => ({ contexts: contexts.listContexts({ q, kind, limit }) }),
+  ),
+  tool("context_get",
+    "Read one context card: open items by kind, done ones, dates, commitments and last contact.\nRead-only. Accepts the context id, its name, or the name of the person it belongs to (a person's context is created the first time it is read). Returns the items grouped by kind (idea, wish, plan, pending, taste, place, note), the next birthday and special dates, the open commitments both ways and how long since the last contact.\nSinónimos: ficha de, qué tengo apuntado de, qué le puedo regalar, qué tengo pendiente con, contexto de",
+    z.object({ context: z.string().trim().min(1).max(200).describe("Context id, context name, or the name of the person") }),
+    RO,
+    ({ context }) => {
+      const found = contexts.resolveContextRef(context);
+      if (!found.context) {
+        if (found.candidates.length) fail(`No sé a qué contexto te refieres con "${context}". ¿Es alguno de estos?`, { candidates: found.candidates });
+        fail(`No encuentro el contexto "${context}".`);
+      }
+      return contexts.contextCard(found.context.id);
+    },
+  ),
+  tool("context_create",
+    "Create a context for a group of people, or open the one of a person.\nA group context has a name (la casa, el equipo, los del pádel) and optional members given by name or id; the same name is not created twice. kind person opens (or returns) the context of that person and needs person. Nothing is deleted and no person is created.\nSinónimos: crea un contexto, abre la ficha de, grupo nuevo, contexto para",
+    contexts.contextInput,
+    { idempotentHint: true },
+    (input) => contexts.createContext(input),
+  ),
+  tool("context_capture",
+    "Quick capture: file an idea, a wish, a plan or a pending thing with only its text.\nThe fastest way to note something in passing: text plus the person or the context it belongs to (a person's context is created the first time). kind defaults to idea; due (YYYY-MM-DD) and remind_days_before make it come back in the daily digest that many days before (21 by default). Without person and without context it lands in the «Sin asignar» context so nothing is lost. The same open item is not saved twice.\nSinónimos: apunta que, no olvidar, idea para, regalo para, recuérdame, guarda esta idea, lista de deseos",
+    z.object({
+      text: z.string().trim().min(1).max(500),
+      kind: z.enum(contexts.ITEM_KINDS).default("idea"),
+      person: personRef.optional(),
+      context: z.string().trim().min(1).max(200).optional(),
+      url: z.string().trim().max(2000).optional(),
+      budget: z.number().nonnegative().max(1e9).nullable().optional(),
+      due: z.string().trim().max(10).nullable().optional().describe("YYYY-MM-DD"),
+      remind_days_before: z.number().int().min(0).max(365).nullable().optional(),
+      source: z.string().trim().max(40).default("manual"),
+    }),
+    {},
+    (input) => contexts.capture(input),
+  ),
+  tool("context_item_add",
+    "Add a full item to a context: kind, page, budget, day and days before to be reminded.\nUse it when the user gives more than the text (a link, a price limit, a day). kind is idea, wish, plan, pending, taste, place or note. due is YYYY-MM-DD; remind_days_before is how many days before that day the daily digest should say it (21 by default when a day is given). The same open item is not saved twice.\nSinónimos: añade a la ficha, apunta el plan, pendiente de, le gusta, restaurante para, deseo",
+    z.object({ context: z.string().trim().min(1).max(200) }).and(contexts.itemInput),
+    {},
+    ({ context, ...input }) => {
+      const found = contexts.resolveContextRef(context);
+      if (!found.context) {
+        if (found.candidates.length) fail(`No sé a qué contexto te refieres con "${context}". ¿Es alguno de estos?`, { candidates: found.candidates });
+        fail(`No encuentro el contexto "${context}".`);
+      }
+      return contexts.addItem(found.context.id, input);
+    },
+  ),
+  tool("context_item_update",
+    "Change an item of a context or mark it done or dropped.\nOnly the fields given change: text, kind, url, budget, due, remind_days_before, status (open, done, dropped). Marking it done keeps the day it was done.\nSinónimos: ya lo hice, regalado, descartar, cambia la fecha, marca como hecho",
+    z.object({ id: z.string().min(1) }).and(contexts.itemPatch),
+    { idempotentHint: true },
+    ({ id, ...patch }) => {
+      const out = contexts.updateItem(id, patch);
+      if (!out) fail("Ese elemento no existe.", { status: 404 });
+      return out;
+    },
+  ),
+  tool("context_item_remove",
+    "Delete an item of a context by id (borrar de la ficha).\nReturns whether it existed. Irreversible.\nSinónimos: borra de la ficha, quita la idea, elimina el pendiente",
+    z.object({ id: z.string().min(1) }),
+    { destructiveHint: true, idempotentHint: true },
+    ({ id }) => ({ removed: contexts.deleteItem(id) }),
+  ),
+  tool("context_upcoming",
+    "What the contexts have coming: plans and pending things with a day, and who is waiting for a reply.\nRead-only. Items with a day inside their reminder window (remind_days_before, 21 by default) or within the next days, soonest first, each saying whether the reminder is already open (remind_now); plus the contexts marked as awaiting a reply and how many days.\nSinónimos: qué se acerca, planes próximos, cumpleaños y fechas, sin contestar, pendientes con fecha",
+    z.object({ days: z.number().int().min(0).max(366).default(60) }),
+    RO,
+    ({ days }) => ({ items: contexts.upcomingContextItems({ days }), awaiting_reply: contexts.contextNudgeItems().filter((i) => i.key.startsWith("context-reply:")) }),
   ),
 );
 
