@@ -7,6 +7,7 @@ import { listPeople } from "./people.js";
 import { listCommitments, eventText } from "./commitments.js";
 import { listReminders } from "./reminders.js";
 import { upcomingPersonDates, personDateTitle } from "./person-dates.js";
+import { contextNudgeItems } from "./contexts.js";
 import { nextBirthday, daysSince, localDate, today as todayLocal, addDays } from "./dates.js";
 import { getPublicUrl } from "./agenda.js";
 import * as family from "./hoard-link.js";
@@ -118,11 +119,14 @@ export function nudgesReport({ today = todayLocal(), baseUrl = getPublicUrl() } 
     items.push({ key: `cooling:${c.person_id}:${localDate(c.last_contact_at)}`, kind: "cooling", person_id: c.person_id,
       title: `Hace ${sinceWords(c.days_since_contact)} que no hablas con ${c.name}`, url: personUrl(baseUrl, c.person_id) });
   }
+  // contexts: a plan or a pending thing inside its reminder window, and who is waiting for a reply
+  const contextItems = contextNudgeItems({ today, baseUrl });
+  for (const item of contextItems) items.push(item);
   const sent = getSetting(KEYS.sent, {}) || {};
   for (const item of items) item.sent = !!sent[item.key];
   return {
     as_of: today, enabled: nudgesEnabled(), cooling_days: coolingDays(),
-    commitments: { due_today: dueToday, overdue }, reminders, birthdays, dates, cooling,
+    commitments: { due_today: dueToday, overdue }, reminders, birthdays, dates, cooling, contexts: contextItems,
     items, pending: items.filter((i) => !i.sent).length, last_run: getSetting(KEYS.last, null),
   };
 }

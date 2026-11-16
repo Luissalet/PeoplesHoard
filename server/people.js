@@ -337,6 +337,19 @@ export function mergePeople(keepId, dropId) {
     db().prepare("UPDATE person_dates SET person_id = ? WHERE person_id = ?").run(keepId, dropId);
     db().prepare(`DELETE FROM person_dates WHERE person_id = ? AND rowid NOT IN
       (SELECT MIN(rowid) FROM person_dates WHERE person_id = ? GROUP BY lower(label), date)`).run(keepId, keepId);
+    // contexts: the dropped person's card moves into the kept one's (created if it had none), and group memberships follow
+    const dropContext = db().prepare("SELECT id FROM contexts WHERE person_id = ?").get(dropId);
+    if (dropContext) {
+      const keepContext = db().prepare("SELECT id FROM contexts WHERE person_id = ?").get(keepId);
+      if (keepContext) {
+        db().prepare("UPDATE context_items SET context_id = ? WHERE context_id = ?").run(keepContext.id, dropContext.id);
+        db().prepare("DELETE FROM contexts WHERE id = ?").run(dropContext.id);
+      } else {
+        db().prepare("UPDATE contexts SET person_id = ?, name = ?, updated_at = ? WHERE id = ?").run(keepId, keep.name, now(), dropContext.id);
+      }
+    }
+    db().prepare("UPDATE OR IGNORE context_members SET person_id = ? WHERE person_id = ?").run(keepId, dropId);
+    db().prepare("DELETE FROM context_members WHERE person_id = ?").run(dropId);
     const dropAliases = db().prepare("SELECT * FROM aliases WHERE person_id = ?").all(dropId);
     for (const a of dropAliases) {
       try {

@@ -4,6 +4,7 @@ import { listReminders } from "./reminders.js";
 import { listCommitments } from "./commitments.js";
 import { parseBirthday, today } from "./dates.js";
 import { upcomingPersonDates } from "./person-dates.js";
+import { upcomingContextItems } from "./contexts.js";
 import { parseIso } from "./hoard-commons/dates.js";
 import { buildIcs } from "./hoard-commons/ics.js";
 
@@ -53,6 +54,14 @@ export function calendarFeed({ from = today(), generatedAt = new Date() } = {}) 
     events.push({ uid: `commitment-${c.id}@peoples-hoard.local`, start: c.due, all_day: true, summary, categories: ["Compromiso"] });
     commitments++;
   }
+  // plans and pending things kept in a context, on their day
+  let plans = 0;
+  for (const item of upcomingContextItems({ from, days: 366 })) {
+    if (item.kind !== "plan" && item.kind !== "pending") continue;
+    events.push({ uid: `context-${item.id}@peoples-hoard.local`, start: item.due, all_day: true,
+      summary: `${item.text} · ${item.context_name}`, categories: ["Contexto"] });
+    plans++;
+  }
   const text = buildIcs(events, { name: "People's Hoard", prodid: "-//People's Hoard//Calendar Export//ES", now: generatedAt });
-  return { text, birthdays, dates, reminders, commitments };
+  return { text, birthdays, dates, reminders, commitments, plans };
 }

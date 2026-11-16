@@ -204,6 +204,11 @@ export default function Persona({ id }) {
     setConfirmingDelete(false);
     if (await run(() => api.people.remove(id), "Persona borrada.")) window.location.hash = "#/personas";
   };
+  // the person's living card (ideas, plans, pending things): created the first time it is opened
+  const openContext = async () => {
+    const card = await run(() => api.contexts.ofPerson(id));
+    if (card) window.location.hash = `#/contextos/${card.context.id}`;
+  };
 
   return (
     <Page
@@ -220,6 +225,7 @@ export default function Persona({ id }) {
           <>
             <button type="button" className="btn btn-primary" aria-expanded={preparing} onClick={() => setPreparing(true)} title="Resumen de lo último, compromisos abiertos y temas pendientes, escrito con el modelo de la familia">Prepárame</button>
             <button type="button" className="btn" onClick={() => setEditing(true)}>Editar datos</button>
+            <button type="button" className="btn" disabled={busy} title="Ideas de regalo, planes con fecha, pendientes, gustos y lugares de esta persona" onClick={openContext}>Contexto</button>
             <button type="button" className="btn" disabled={busy} title="Nombre, apodo, teléfonos, correos, cumpleaños, ubicación y círculos guardados" onClick={() => run(() => api.people.downloadVcard([id]), "Contacto descargado en vCard.")}>Descargar .vcf</button>
             <button type="button" className="btn" onClick={() => setMerging((v) => !v)} aria-expanded={merging}>Fusionar</button>
             <button type="button" className="btn" onClick={toggleArchive}>{person.archived ? "Recuperar" : "Archivar"}</button>

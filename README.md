@@ -20,6 +20,13 @@ The same data is exposed to an assistant through MCP. It is one app of the Hoard
 - Merge duplicates (the kept person also receives what it lacked) and delete, and **Buscar duplicados** to find likely pairs by name similarity, same e-mail or phone, or same birthday; it never merges on its own.
 - **Prepárame**: a written catch-up before seeing someone (what you talked about, what you owe each other, open reminders, upcoming dates, an opening question), written by the family model, or a plain outline when none is available.
 
+**Contexts**
+- One living card per person or per group (the house, the team, the people from the course): gift ideas and wishes, plans with a day, pending and promised things, tastes and places, each with an optional page, budget and day.
+- **Apuntar algo** captures in one line: the text plus the type and, if wanted, the context and the day. A capture with no person and no context lands in «Sin asignar», so nothing is lost and it can be filed later. The same open item is not saved twice.
+- A plan or a pending thing with a day comes back in the daily digest from a set number of days before (21 by default, per item), shows on the family agenda and in the `.ics` export, and appears under **Lo que se acerca** with the days left.
+- **Espero respuesta** marks the day a reply is owed, so the digest can say «sin contestar a…» and how long; **Ya he contestado** clears it.
+- The card of a person also shows their next birthday and special dates, the open commitments both ways and how long since the last contact; merging two people keeps both cards' items in the kept one.
+
 **Contact history**
 - A timeline per person with channel, summary and an optional date and time; adding an older conversation never moves the last-contact date backwards.
 - **Consultar historial** searches the whole recorded history (accent-insensitive, by person, channel, day and archived people, with exact totals) and **Descargar historial** exports every match as JSON or CSV. See [`docs/interaction-history.md`](docs/interaction-history.md) and [`docs/history-export.md`](docs/history-export.md).
@@ -93,6 +100,7 @@ Behind a private tunnel, list the host names in `PEOPLE_ALLOWED_HOSTS`; the brow
 | Commitments | `commitments_list`, `commitment_add`, `commitment_update`, `commitment_done`, `commitment_drop`, `commitments_review`, `commitments_digest`, `commitments_ingest_minutes`, `commitments_extract_text`, `commitments_from_messages`, `commitments_import_talos` |
 | Preparation | `prepare_person_chat`, `prepare_to_meet`, `people_from_minutes` |
 | Mail and gifts | `contacts_sync_mail`, `gift_idea_add`, `gift_ideas`, `gift_watch` |
+| Contexts | `context_list`, `context_get`, `context_create`, `context_capture`, `context_item_add`, `context_item_update`, `context_item_remove`, `context_upcoming` |
 | vCard | `import_people_vcard`, `export_people_vcard` |
 
 Names are matched fuzzily; ambiguous names return candidates so the assistant can ask, since two people can share a first name. Destructive tools (merge, delete) ask first.
@@ -114,9 +122,9 @@ Names are matched fuzzily; ambiguous names return candidates so the assistant ca
 
 | Path | Contents |
 | --- | --- |
-| `server/` | Express API, SQLite access, people, aliases, duplicates, interactions, commitments, mail sync, gifts, agenda, calendar export, MCP bridge |
+| `server/` | Express API, SQLite access, people, aliases, duplicates, interactions, commitments, mail sync, gifts, contexts, agenda, calendar export, MCP bridge |
 | `server/hoard-commons/`, `server/hoard-link.js` | Vendored shared code of the Hoard family; do not edit here |
-| `client/` | React 19 + Vite + Tailwind v4 (Personas, Persona, Agenda, Compromisos, Ajustes) |
+| `client/` | React 19 + Vite + Tailwind v4 (Personas, Persona, Agenda, Compromisos, Contextos, Contexto, Ajustes) |
 | `docs/` | API reference and history documentation |
 | `scripts/` | `launch.mjs`, `dev.mjs` |
 | `tests/` | `node:test` suites |

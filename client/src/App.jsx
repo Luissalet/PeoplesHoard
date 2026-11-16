@@ -7,11 +7,14 @@ import Persona from "./pages/Persona.jsx";
 import Agenda from "./pages/Agenda.jsx";
 import Compromisos from "./pages/Compromisos.jsx";
 import Ajustes from "./pages/Ajustes.jsx";
+import Contextos from "./pages/Contextos.jsx";
+import Contexto from "./pages/Contexto.jsx";
 
 const PAGES = [
   { path: "personas", label: "Personas", icon: "M16 11a3 3 0 100-6 3 3 0 000 6zM8 11a3 3 0 100-6 3 3 0 000 6zM2 20c0-3 3-5 6-5s6 2 6 5M14 15c2.5 0 6 1.5 6 5" },
   { path: "agenda", label: "Agenda", icon: "M7 3v3M17 3v3M4 9h16M5 6h14a1 1 0 011 1v12a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1z" },
   { path: "compromisos", label: "Compromisos", icon: "M9 12l2 2 4-4M12 3a9 9 0 100 18 9 9 0 000-18z" },
+  { path: "contextos", label: "Contextos", icon: "M4 5h16M4 12h10M4 19h7M17 15l3 3-3 3" },
   { path: "ajustes", label: "Ajustes", icon: "M12 8a4 4 0 100 8 4 4 0 000-8zM4 12h2m12 0h2M12 4v2m0 12v2" },
 ];
 
@@ -65,6 +68,8 @@ export default function App() {
   if (route.path === "personas" && route.param) content = <Persona key={route.param} id={route.param} />;
   else if (route.path === "agenda") content = <Agenda />;
   else if (route.path === "compromisos") content = <Compromisos />;
+  else if (route.path === "contextos" && route.param) content = <Contexto key={route.param} id={route.param} />;
+  else if (route.path === "contextos") content = <Contextos />;
   else if (route.path === "ajustes") content = <Ajustes />;
   else content = <Personas />;
 
