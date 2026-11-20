@@ -1,3 +1,3 @@
 # Pendientes
 
-Nada pendiente de una decisión de Luis.
+No hay decisiones pendientes.

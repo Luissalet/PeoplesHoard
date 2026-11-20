@@ -82,9 +82,9 @@ test("an open commitment editor adds its commitment; creation forms add none", a
   assert.deepEqual(ids(ctx), ["commitment:c1"]);
   assert.equal(ctx.view.editors.length, 3);
   assert.equal(ctx.view.editor.kind, "commitment-form");
-  const creating = await buildContext({ ...deps, hash: "#/personas", view: {}, editors: [{ kind: "person-new", object_id: null, dirty: true, fields: { name: "Luis" } }] });
+  const creating = await buildContext({ ...deps, hash: "#/personas", view: {}, editors: [{ kind: "person-new", object_id: null, dirty: true, fields: { name: "Contacto de prueba" } }] });
   assert.deepEqual(creating.active_objects, []);
-  assert.deepEqual(creating.view.editor.fields, { name: "Luis" });
+  assert.deepEqual(creating.view.editor.fields, { name: "Contacto de prueba" });
 });
 
 test("pages and forms answer the context request", () => {
